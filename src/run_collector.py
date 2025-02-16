@@ -14,6 +14,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Список основных монет для отслеживания
+MAIN_COINS = [
+    'BTC-USDT',
+    'ETH-USDT',
+    'TON-USDT',
+    'TRUMP-USDT',
+    'ATOM-USDT',
+    'FIL-USDT',
+    'DOGE-USDT',
+    'FTM-USDT',
+    'FUEL-USDT'
+]
+
 async def main():
     # Инициализируем компоненты
     client = KuCoinMarketClient()
@@ -32,13 +45,18 @@ async def main():
     potential_coins = await scanner.find_shitcoins()
     logger.info(f"Найдено {len(potential_coins)} потенциальных шиткоинов")
     
-    if not potential_coins:
-        logger.error("Не найдено монет для анализа!")
-        return
-        
-    logger.info(f"Начинаем сбор данных для монет: {potential_coins[:5]}")
+    # Объединяем основные монеты и шиткоины
+    all_coins = MAIN_COINS + potential_coins
+    unique_coins = list(dict.fromkeys(all_coins))  # удаляем дубликаты, если есть
     
-    # Создаем коллектор данных с меньшим интервалом
+    logger.info(f"""
+=== Начинаем сбор данных ===
+Всего монет: {len(unique_coins)}
+Основные монеты: {MAIN_COINS}
+Первые 5 шиткоинов: {potential_coins[:5]}
+=========================""")
+    
+    # Создаем коллектор данных
     collector = MarketDataCollector(
         client=client,
         repository=repository,
@@ -46,8 +64,8 @@ async def main():
     )
     
     try:
-        # Запускаем сбор данных
-        await collector.start_collection(symbols=potential_coins[:5])
+        # Запускаем сбор данных для всех монет
+        await collector.start_collection(symbols=unique_coins)
     except KeyboardInterrupt:
         logger.info("Останавливаем сбор данных...")
     except Exception as e:

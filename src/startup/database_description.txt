@@ -1,0 +1,162 @@
+Описание системы баз данных для анализа криптовалютных пар
+==========================================================
+
+Структура базы данных
+--------------------
+
+1. Таблица trading_pairs
+Хранит информацию о торговых парах криптовалют.
+
+CREATE TABLE trading_pairs (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(50) UNIQUE NOT NULL,      -- Например: "BTC-USDT"
+    base_currency VARCHAR(20) NOT NULL,      -- Например: "BTC"
+    quote_currency VARCHAR(20) NOT NULL,     -- Например: "USDT"
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+)
+
+2. Таблица price_tickers
+Хранит данные тикеров с минутным интервалом. 
+Записи создаются только при значимых изменениях цены (>0.1%) или объема (>1%).
+
+CREATE TABLE price_tickers (
+    time TIMESTAMPTZ NOT NULL,               -- Время тикера
+    trading_pair_id INTEGER NOT NULL,        -- Ссылка на trading_pairs
+    price NUMERIC NOT NULL,                  -- Текущая цена
+    volume NUMERIC NOT NULL,                 -- Объем торгов
+    best_bid NUMERIC NOT NULL,              -- Лучшая цена покупки
+    best_ask NUMERIC NOT NULL,              -- Лучшая цена продажи
+    best_bid_size NUMERIC,                  -- Объем на лучшей цене покупки
+    best_ask_size NUMERIC,                  -- Объем на лучшей цене продажи
+    sequence VARCHAR(50),                    -- Уникальный идентификатор тикера
+    price_change NUMERIC,                    -- Процент изменения цены
+    volume_change NUMERIC                    -- Процент изменения объема
+)
+
+3. Таблица significant_trades
+Хранит только значимые сделки (объем > 1000 USDT).
+
+CREATE TABLE significant_trades (
+    time TIMESTAMPTZ NOT NULL,               -- Время сделки
+    trading_pair_id INTEGER NOT NULL,        -- Ссылка на trading_pairs
+    trade_id VARCHAR(100) NOT NULL,          -- Уникальный ID сделки
+    price NUMERIC NOT NULL,                  -- Цена сделки
+    quantity NUMERIC NOT NULL,               -- Количество
+    volume NUMERIC NOT NULL,                 -- Объем сделки (price * quantity)
+    side VARCHAR(10),                        -- Сторона сделки (buy/sell)
+    is_significant BOOLEAN DEFAULT FALSE     -- Флаг для особо крупных сделок (>10000 USDT)
+)
+
+4. Таблица collection_state
+Хранит состояние сбора данных для каждой торговой пары.
+
+CREATE TABLE collection_state (
+    trading_pair_id INTEGER PRIMARY KEY,     -- Ссылка на trading_pairs
+    last_ticker_time TIMESTAMPTZ,           -- Время последнего тикера
+    last_trade_time TIMESTAMPTZ,            -- Время последней сделки
+    last_sequence VARCHAR(50),              -- Последний sequence ID
+    errors_count INTEGER DEFAULT 0,          -- Количество ошибок
+    total_records_collected BIGINT DEFAULT 0, -- Общее количество записей
+    last_price NUMERIC,                      -- Последняя цена
+    last_volume NUMERIC,                     -- Последний объем
+    is_active BOOLEAN DEFAULT TRUE,          -- Активность пары
+    updated_at TIMESTAMPTZ DEFAULT NOW()     -- Время обновления
+)
+
+5. Таблица coin_metrics
+Хранит агрегированные метрики по монетам за разные временные окна.
+
+CREATE TABLE coin_metrics (
+    id SERIAL PRIMARY KEY,
+    trading_pair_id INTEGER NOT NULL,        -- Ссылка на trading_pairs
+    time_window INTERVAL NOT NULL,           -- Временное окно (1 час, 1 день)
+    time TIMESTAMPTZ NOT NULL,              -- Время метрики
+    price_high NUMERIC,                      -- Максимальная цена
+    price_low NUMERIC,                       -- Минимальная цена
+    price_open NUMERIC,                      -- Цена открытия
+    price_close NUMERIC,                     -- Цена закрытия
+    volume_total NUMERIC,                    -- Общий объем
+    trades_count INTEGER,                    -- Количество сделок
+    significant_trades_count INTEGER,        -- Количество крупных сделок
+    price_volatility NUMERIC,                -- Волатильность цены
+    volume_volatility NUMERIC,               -- Волатильность объема
+    largest_trade_volume NUMERIC,            -- Объем крупнейшей сделки
+    buy_volume_ratio NUMERIC,                -- Соотношение объемов покупок/продаж
+    created_at TIMESTAMPTZ DEFAULT NOW()     -- Время создания записи
+)
+
+6. Таблица coin_pumps
+Хранит информацию о резких движениях цены ("взлетах") монет.
+
+CREATE TABLE coin_pumps (
+    id SERIAL PRIMARY KEY,
+    trading_pair_id INTEGER NOT NULL,        -- Ссылка на trading_pairs
+    start_time TIMESTAMPTZ NOT NULL,        -- Начало движения
+    end_time TIMESTAMPTZ,                   -- Конец движения
+    start_price NUMERIC NOT NULL,           -- Начальная цена
+    peak_price NUMERIC,                     -- Пиковая цена
+    price_increase_percent NUMERIC,         -- Процент роста цены
+    volume_increase_percent NUMERIC,        -- Процент роста объема
+    duration INTERVAL,                      -- Длительность движения
+    significant_trades_before INTEGER,      -- Количество крупных сделок до
+    significant_trades_during INTEGER,      -- Количество крупных сделок во время
+    pattern_type VARCHAR(50),               -- Тип паттерна
+    notes TEXT,                            -- Дополнительные заметки
+    created_at TIMESTAMPTZ DEFAULT NOW()    -- Время создания записи
+)
+
+Индексы
+-------
+CREATE INDEX idx_tickers_time_pair ON price_tickers (time DESC, trading_pair_id);
+CREATE INDEX idx_trades_time_pair ON significant_trades (time DESC, trading_pair_id);
+CREATE UNIQUE INDEX idx_trades_id ON significant_trades (trade_id, trading_pair_id);
+
+Особенности системы
+------------------
+
+1. Фильтрация данных:
+   - Тикеры сохраняются только при значимых изменениях
+   - Сделки фильтруются по минимальному объему
+   - Особо крупные сделки помечаются специальным флагом
+
+2. Оптимизация хранения:
+   - Использование NUMERIC для точных расчетов
+   - Индексы по времени и ID пар для быстрого поиска
+   - Уникальные индексы для предотвращения дубликатов
+
+3. Мониторинг:
+   - Отслеживание основных монет (BTC, ETH, TON и др.)
+   - Автоматическое обнаружение потенциальных шиткоинов
+   - Сбор статистики использования базы данных
+
+4. Производительность:
+   - Параллельный сбор данных группами по 20 монет
+   - Пакетное сохранение сделок
+   - Кэширование ID торговых пар
+
+Использование
+------------
+
+База данных предназначена для:
+1. Анализа движения цен криптовалют
+2. Выявления значимых торговых событий
+3. Отслеживания потенциально прибыльных шиткоинов
+4. Исторического анализа успешных и неуспешных монет
+
+Примерный размер данных
+----------------------
+
+За месяц сбора данных (при интервале 1 минута):
+- ~122 миллионов записей тикеров
+- ~12.2 миллиарда записей сделок
+- Общий размер данных: ~2 ТБ
+
+Оптимизации
+-----------
+
+Для оптимизации хранения и производительности:
+1. Увеличен интервал сбора до 1 минуты
+2. Фильтрация незначительных изменений цен
+3. Сохранение только крупных сделок
+4. Использование индексов для быстрого поиска

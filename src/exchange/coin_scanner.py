@@ -22,10 +22,7 @@ class CoinScanner:
                     last_price = float(ticker.get('last', '0'))
                     vol_value = float(ticker.get('volValue', '0'))  # объем в базовой валюте
                     
-                    # Критерии для определения шиткоина:
-                    # 1. Торгуется против USDT
-                    # 2. Низкая цена
-                    # 3. Небольшой объем торгов
+
                     if (symbol.endswith('USDT') and 
                         last_price < 0.01 and  # цена меньше цента
                         vol_value < 100000):   # объем меньше 100k USDT

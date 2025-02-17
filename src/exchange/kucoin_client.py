@@ -11,46 +11,89 @@ class KuCoinMarketClient:
         self.client = Market()
         self.logger = logging.getLogger(__name__)
         self._last_tickers = {}  # кэш для последних тикеров
+
+    async def get_kline_data(self, symbol: str, kline_type: str = '1min', size: int = 60) -> List:
+        """
+        Получает исторические данные свечей
         
-    async def get_ticker(self, symbol: str) -> Optional[Dict]:
-        """Получает и анализирует данные тикера"""
+        Args:
+            symbol: Торговая пара (например, 'BTC-USDT')
+            kline_type: Интервал свечей ('1min', '3min', '5min', '15min', '30min', '1hour', '2hour', '4hour', '6hour', '8hour', '12hour', '1day', '1week')
+            size: Количество свечей (максимум 1500)
+        
+        Returns:
+            List of klines [timestamp, open, close, high, low, volume, turnover]
+        """
         try:
-            ticker = self.client.get_ticker(symbol)
+            self.logger.debug(f"Запрашиваем kline данные для {symbol}, тип: {kline_type}, размер: {size}")
             
-            # Получаем предыдущий тикер
-            last_ticker = self._last_tickers.get(symbol)
+            # Исправляем вызов API метода на правильное название
+            klines = self.client.get_klines(symbol, kline_type)
             
-            # Рассчитываем изменения
-            price_change = 0
-            volume_change = 0
-            if last_ticker:
-                price_change = ((float(ticker['price']) - float(last_ticker['price'])) 
-                              / float(last_ticker['price']) * 100)
-                volume_change = ((float(ticker['size']) - float(last_ticker['size'])) 
-                               / float(last_ticker['size']) * 100)
+            if not klines:
+                self.logger.warning(f"Нет данных для {symbol}")
+                return []
+                
+            # Берем только нужное количество свечей
+            klines = klines[:size]
+                
+            # Преобразуем строковые значения в числовые
+            processed_klines = []
+            for kline in klines:
+                try:
+                    processed_kline = [
+                        int(kline[0]),      # timestamp
+                        float(kline[1]),    # open
+                        float(kline[2]),    # close
+                        float(kline[3]),    # high
+                        float(kline[4]),    # low
+                        float(kline[5]),    # volume
+                        float(kline[6])     # turnover
+                    ]
+                    processed_klines.append(processed_kline)
+                except (ValueError, IndexError) as e:
+                    self.logger.warning(f"Ошибка обработки свечи: {e}, данные: {kline}")
+                    continue
             
-            # Сохраняем текущий тикер
-            self._last_tickers[symbol] = ticker
-            
-            # Возвращаем данные только если есть значимые изменения
-            if abs(price_change) >= 0.1 or abs(volume_change) >= 1.0:
-                return {
-                    'symbol': symbol,
-                    'price': ticker['price'],
-                    'volume': ticker['size'],
-                    'time': int(ticker['time']),
-                    'best_bid': ticker['bestBid'],
-                    'best_ask': ticker['bestAsk'],
-                    'best_bid_size': ticker['bestBidSize'],
-                    'best_ask_size': ticker['bestAskSize'],
-                    'sequence': ticker['sequence'],
-                    'price_change': price_change,
-                    'volume_change': volume_change
-                }
-            return None
+            self.logger.debug(f"Получено и обработано {len(processed_klines)} свечей")
+            return processed_klines
             
         except Exception as e:
-            self.logger.error(f"Ошибка при получении тикера {symbol}: {e}")
+            self.logger.error(f"Ошибка при получении kline данных для {symbol}: {e}")
+            return []
+
+    async def get_ticker(self, symbol: str) -> Optional[Dict]:
+        """Получает данные тикера"""
+        try:
+            self.logger.debug(f"Запрашиваем тикер для {symbol}")
+            # KuCoin API возвращает данные в формате {'ticker': {...}}
+            response = self.client.get_ticker(symbol)
+            self.logger.debug(f"Получен ответ от API: {response}")
+            
+            if not response:
+                self.logger.warning(f"Пустой ответ от API для {symbol}")
+                return None
+
+            # Преобразуем данные в нужный формат
+            ticker_data = {
+                'symbol': symbol,
+                'price': response.get('price', '0'),
+                'volume': response.get('vol', '0'),  # в KuCoin используется 'vol' вместо 'volume'
+                'time': response.get('time', str(int(datetime.now().timestamp() * 1000))),
+                'best_bid': response.get('buy', '0'),  # в KuCoin 'buy' это best_bid
+                'best_ask': response.get('sell', '0'),  # в KuCoin 'sell' это best_ask
+                'best_bid_size': response.get('buySize', '0'),
+                'best_ask_size': response.get('sellSize', '0')
+            }
+
+            # Сохраняем в кэш
+            self._last_tickers[symbol] = ticker_data
+            
+            self.logger.debug(f"Обработанные данные тикера: {ticker_data}")
+            return ticker_data
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при получении тикера для {symbol}: {e}")
             return None
 
     async def get_all_tickers(self) -> Dict:
@@ -68,7 +111,7 @@ class KuCoinMarketClient:
         try:
             trades_data = self.client.get_trade_histories(symbol)
             self.logger.debug(f"RAW TRADES DATA [{symbol}]: {json.dumps(trades_data[:5], indent=2)}")
-            
+
             significant_trades = []
             for trade in trades_data:
                 # Проверяем наличие всех необходимых полей
@@ -85,9 +128,9 @@ class KuCoinMarketClient:
                             'time': int(trade['time']) // 1000000,  # наносекунды -> миллисекунды
                             'is_significant': volume >= min_volume * 10  # помечаем особо крупные сделки
                         })
-            
+
             return significant_trades
-            
+
         except Exception as e:
             self.logger.error(f"Ошибка при получении сделок {symbol}: {e}")
             self.logger.debug(f"Последняя ошибка для {symbol}: {str(e)}")
@@ -108,4 +151,4 @@ class KuCoinMarketClient:
             return await self.client.post(endpoint, params)
         except Exception as e:
             self.logger.error(f"Ошибка при создании тестового ордера: {e}")
-            return None 
+            return None

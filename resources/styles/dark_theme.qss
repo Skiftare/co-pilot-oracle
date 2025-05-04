@@ -1,0 +1,153 @@
+/* Основные цвета */
+QMainWindow, QDialog {
+    background-color: #1E1E2D;
+    color: #E0E0E0;
+}
+
+QWidget {
+    color: #E0E0E0;
+    font-family: 'Roboto';
+    font-size: 11pt;
+}
+
+/* Заголовок */
+#headerFrame {
+    background-color: #2D2D44;
+    border-bottom: 1px solid #414153;
+    min-height: 50px;
+    padding: 5px;
+}
+
+#titleLabel {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #E0E0E0;
+}
+
+#apiStatus {
+    font-size: 10pt;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background-color: rgba(76, 175, 80, 0.3);
+}
+
+#apiStatus[status="error"] {
+    background-color: rgba(244, 67, 54, 0.3);
+}
+
+/* Вкладки */
+QTabWidget::pane {
+    border: 1px solid #414153;
+    background-color: #2D2D44;
+    border-radius: 5px;
+}
+
+QTabBar::tab {
+    background-color: #1E1E2D;
+    color: #A0A0A0;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    padding: 8px 15px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background-color: #2D2D44;
+    color: #E0E0E0;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: #272736;
+}
+
+/* Карточки статуса */
+#statusCard {
+    background-color: #2D2D44;
+    border-radius: 8px;
+    border: 1px solid #414153;
+}
+
+#statusCard[cardColor="success"] {
+    border-left: 5px solid #4CAF50;
+}
+
+#statusCard[cardColor="danger"] {
+    border-left: 5px solid #F44336;
+}
+
+#statusCard[cardColor="warning"] {
+    border-left: 5px solid #FFC107;
+}
+
+#cardTitle {
+    font-size: 10pt;
+    color: #A0A0A0;
+}
+
+#cardValue {
+    font-size: 18pt;
+    font-weight: bold;
+}
+
+#cardSubtitle {
+    font-size: 9pt;
+    color: #A0A0A0;
+}
+
+/* Кнопки */
+QPushButton {
+    border: 1px solid #414153;
+    border-radius: 5px;
+    padding: 8px 15px;
+    background-color: #2D2D44;
+    color: #E0E0E0;
+}
+
+QPushButton:hover {
+    background-color: #383852;
+}
+
+QPushButton:pressed {
+    background-color: #20202F;
+}
+
+#primaryButton {
+    background-color: #1976D2;
+    border: none;
+    color: white;
+}
+
+#primaryButton:hover {
+    background-color: #2196F3;
+}
+
+#primaryButton:pressed {
+    background-color: #0D47A1;
+}
+
+#secondaryButton {
+    background-color: #455A64;
+    border: none;
+    color: white;
+}
+
+#dangerButton {
+    background-color: #D32F2F;
+    border: none;
+    color: white;
+}
+
+#dangerButton:hover {
+    background-color: #F44336;
+}
+
+#controlButton[status="paused"] {
+    background-color: #4CAF50;
+}
+
+/* Поля ввода */
+QLineEdit, QDateEdit, QSpinBox, QComboBox {
+    padding: 6px 10px;
+    border: 1px solid #414153;
+    border-radius: 5px;
+    background-color: #1E1E2D;

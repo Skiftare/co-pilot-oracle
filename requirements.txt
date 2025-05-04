@@ -1,6 +1,0 @@
-kucoin-python
-pandas
-numpy
-scipy
-psycopg2-binary
-python-dotenv 

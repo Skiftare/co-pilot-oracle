@@ -1,0 +1,9 @@
+PyQt6
+plotly
+pandas
+numpy
+psycopg2-binary
+python-dotenv
+kucoin-python
+setuptools
+PyQtWebEngine

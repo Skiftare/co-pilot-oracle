@@ -1,0 +1,13 @@
+Metadata-Version: 2.2
+Name: crypto_analyzer
+Version: 0.1
+Requires-Dist: PyQt6
+Requires-Dist: plotly
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: psycopg2-binary
+Requires-Dist: python-dotenv
+Requires-Dist: kucoin-python
+Requires-Dist: setuptools
+Requires-Dist: PyQtWebEngine
+Dynamic: requires-dist

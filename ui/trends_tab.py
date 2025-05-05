@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QTableWidget, QTableWidgetItem, QPushButton,
                              QFrame, QComboBox, QHeaderView, QMenu,
-                             QAction, QApplication, QMessageBox, QToolButton)
-from PyQt5.QtCore import Qt, QTimer
+                             QAction, QApplication, QMessageBox, QToolButton,
+                             QScrollArea, QSizePolicy)
+from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QColor, QCursor
 import pandas as pd
 
@@ -20,6 +21,16 @@ class TrendsTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
+        
+        # Создаем прокручиваемую область для поддержки маленьких экранов
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(10)
 
         # Верхняя панель управления
         controls_frame = QFrame()
@@ -53,10 +64,11 @@ class TrendsTab(QWidget):
         self.scan_btn.setObjectName("primaryButton")
         self.scan_btn.setIcon(QIcon("resources/icons/search.png"))
         self.scan_btn.clicked.connect(self.find_trends)
+        self.scan_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         controls_layout.addWidget(self.scan_btn)
 
         # Добавляем панель управления в основной layout
-        layout.addWidget(controls_frame)
+        scroll_layout.addWidget(controls_frame)
 
         # Информационная панель
         info_frame = QFrame()
@@ -65,34 +77,41 @@ class TrendsTab(QWidget):
 
         self.info_label = QLabel("Quickly find trending coins with significant price movement")
         self.info_label.setObjectName("infoLabel")
+        self.info_label.setWordWrap(True)  # Позволяем тексту переноситься
         info_layout.addWidget(self.info_label)
 
         # Индикатор загрузки
         self.loading_label = QLabel("Scanning...")
         self.loading_label.setObjectName("loadingLabel")
         self.loading_label.setVisible(False)
+        self.loading_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         info_layout.addWidget(self.loading_label, 0, Qt.AlignRight)
 
-        layout.addWidget(info_frame)
+        scroll_layout.addWidget(info_frame)
 
         # Таблица с трендами
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(["Symbol", "Price", "24h Change (%)", "Volume", "Actions"])
         self.table.setObjectName("trendsTable")
         self.table.verticalHeader().setVisible(False)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.setMinimumHeight(200)  # Минимальная высота таблицы
 
+        # Настраиваем адаптивные колонки
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # Symbol
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Price
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Change
+        header.setSectionResizeMode(3, QHeaderView.Stretch)           # Volume (растягивается)
+        header.setSectionResizeMode(4, QHeaderView.Fixed)             # Actions
+        header.setMinimumSectionSize(70)  # Минимальная ширина колонки
+        self.table.setColumnWidth(4, 100)  # Фиксированная ширина для колонки Actions
 
         # Включаем контекстное меню
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
 
-        layout.addWidget(self.table)
+        scroll_layout.addWidget(self.table)
 
         # Нижняя панель с подсказками
         tips_frame = QFrame()
@@ -108,9 +127,14 @@ class TrendsTab(QWidget):
         self.auto_refresh.setObjectName("secondaryButton")
         self.auto_refresh.setCheckable(True)
         self.auto_refresh.clicked.connect(self.toggle_auto_refresh)
+        self.auto_refresh.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         tips_layout.addWidget(self.auto_refresh, 0, Qt.AlignRight)
 
-        layout.addWidget(tips_frame)
+        scroll_layout.addWidget(tips_frame)
+        
+        # Устанавливаем контент для области прокрутки
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
 
         # Таймер для автообновления
         self.refresh_timer = QTimer()
@@ -225,6 +249,10 @@ class TrendsTab(QWidget):
             for col in range(5):
                 if col != 4:  # Не устанавливаем цвет для ячейки с кнопками
                     self.table.item(row, col).setBackground(bg_color)
+        
+        # После обработки данных, убедимся что таблица имеет правильный размер
+        if data is not None and len(data) > 0:
+            self.table.setMinimumHeight(min(400, len(data) * 35 + 30))  # Адаптивная высота таблицы
 
     def copy_symbol(self, symbol):
         """Копирует символ пары в буфер обмена"""

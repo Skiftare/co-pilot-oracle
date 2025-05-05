@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QProgressBar, QTableWidget,
                              QTableWidgetItem, QHeaderView, QFrame,
-                             QGridLayout, QGroupBox)
+                             QGridLayout, QGroupBox, QSizePolicy, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer, QSize
 from PyQt5.QtGui import QIcon, QColor, QFont, QPainter, QBrush
 
@@ -11,6 +11,7 @@ class StatusCard(QFrame):
         super().__init__(parent)
         self.setObjectName("statusCard")
         self.setMinimumHeight(100)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         layout = QGridLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -19,6 +20,7 @@ class StatusCard(QFrame):
         if icon_path:
             icon_label = QLabel()
             icon_label.setPixmap(QIcon(icon_path).pixmap(QSize(32, 32)))
+            icon_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             layout.addWidget(icon_label, 0, 0, 2, 1)
 
         # Заголовок
@@ -62,9 +64,26 @@ class PipeTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(15)
+        
+        # Создаем прокручиваемую область для поддержки маленьких экранов
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(15)
 
-        # Карточки статуса
+        # Карточки статуса в адаптивном макете
         status_layout = QHBoxLayout()
+        status_layout.setSpacing(10)
+
+        # Используем FlexBox-подобный подход для карточек
+        status_frame = QFrame()
+        status_grid = QGridLayout(status_frame)
+        status_grid.setContentsMargins(0, 0, 0, 0)
+        status_grid.setSpacing(10)
 
         # Карточка количества запросов в очереди
         self.queue_card = StatusCard(
@@ -73,7 +92,7 @@ class PipeTab(QWidget):
             "Active requests",
             "resources/icons/queue.png"
         )
-        status_layout.addWidget(self.queue_card)
+        status_grid.addWidget(self.queue_card, 0, 0)
 
         # Карточка статуса лимитов API
         self.rate_limit_card = StatusCard(
@@ -83,7 +102,7 @@ class PipeTab(QWidget):
             "resources/icons/api.png"
         )
         self.rate_limit_card.setColor("success")
-        status_layout.addWidget(self.rate_limit_card)
+        status_grid.addWidget(self.rate_limit_card, 0, 1)
 
         # Карточка времени до сброса ограничений
         self.reset_time_card = StatusCard(
@@ -92,7 +111,7 @@ class PipeTab(QWidget):
             "seconds",
             "resources/icons/timer.png"
         )
-        status_layout.addWidget(self.reset_time_card)
+        status_grid.addWidget(self.reset_time_card, 1, 0)
 
         # Карточка обработанных запросов
         self.processed_card = StatusCard(
@@ -101,10 +120,14 @@ class PipeTab(QWidget):
             "completed requests",
             "resources/icons/check.png"
         )
-        status_layout.addWidget(self.processed_card)
+        status_grid.addWidget(self.processed_card, 1, 1)
+
+        # Настроим адаптивную сетку
+        status_grid.setColumnStretch(0, 1)
+        status_grid.setColumnStretch(1, 1)
 
         # Добавляем карточки в основной layout
-        layout.addLayout(status_layout)
+        scroll_layout.addWidget(status_frame)
 
         # Группа управления очередью
         control_group = QGroupBox("Queue Control")
@@ -118,22 +141,29 @@ class PipeTab(QWidget):
         control_layout.addWidget(self.progress_bar, 1)
 
         # Кнопки управления
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(5)
+        
         self.pause_btn = QPushButton("Pause Queue")
         self.pause_btn.setObjectName("controlButton")
         self.pause_btn.setIcon(QIcon("resources/icons/pause.png"))
         self.pause_btn.setMinimumHeight(30)
         self.pause_btn.clicked.connect(self.toggle_queue)
-        control_layout.addWidget(self.pause_btn)
+        self.pause_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        buttons_layout.addWidget(self.pause_btn)
 
         self.clear_btn = QPushButton("Clear Queue")
         self.clear_btn.setObjectName("dangerButton")
         self.clear_btn.setIcon(QIcon("resources/icons/trash.png"))
         self.clear_btn.setMinimumHeight(30)
         self.clear_btn.clicked.connect(self.clear_queue)
-        control_layout.addWidget(self.clear_btn)
+        self.clear_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        buttons_layout.addWidget(self.clear_btn)
+        
+        control_layout.addLayout(buttons_layout)
 
-        # Добавляем группу управления в основной layout
-        layout.addWidget(control_group)
+        # Добавляем группу управления в layout
+        scroll_layout.addWidget(control_group)
 
         # Группа для таблицы запросов
         table_group = QGroupBox("Active Requests")
@@ -145,19 +175,27 @@ class PipeTab(QWidget):
         self.table.setHorizontalHeaderLabels(["ID", "Status", "Exchange", "Symbol", "Timeframe", "Priority"])
         self.table.setObjectName("requestsTable")
         self.table.verticalHeader().setVisible(False)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.setMinimumHeight(200)
 
+        # Настраиваем адаптивность колонок
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # ID
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Status
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Exchange
+        header.setSectionResizeMode(3, QHeaderView.Stretch)           # Symbol
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Timeframe
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)  # Priority
+        header.setMinimumSectionSize(60)
 
         table_layout.addWidget(self.table)
 
-        # Добавляем группу таблицы в основной layout
-        layout.addWidget(table_group, 1)
+        # Добавляем группу таблицы в layout
+        scroll_layout.addWidget(table_group, 1)
+        
+        # Устанавливаем контент для области прокрутки
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
 
     def update_stats(self):
         # Обновляем информацию о состоянии очереди

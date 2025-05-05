@@ -10,6 +10,17 @@ QWidget {
     font-size: 10pt;
 }
 
+/* Адаптивные настройки */
+@media (device-pixel-ratio >= 2) {
+    QWidget {
+        font-size: 12pt;
+    }
+    
+    #titleLabel {
+        font-size: 18pt;
+    }
+}
+
 /* Заголовок */
 #headerFrame {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -36,7 +47,7 @@ QWidget {
     background-color: rgba(244, 67, 54, 0.2);
 }
 
-/* Вкладки */
+/* Вкладки - адаптивные размеры */
 QTabWidget::pane {
     border: 1px solid #B0C4DE;
     background-color: #F0F8FF;
@@ -53,6 +64,8 @@ QTabBar::tab {
     border-top-right-radius: 4px;
     padding: 6px 12px;
     margin-right: 2px;
+    min-width: 80px;
+    max-width: 200px;
 }
 
 QTabBar::tab:selected {
@@ -67,12 +80,13 @@ QTabBar::tab:hover:!selected {
                               stop:0 #F0F8FF, stop:1 #D0E5FF);
 }
 
-/* Карточки статуса */
+/* Карточки статуса - адаптивные */
 #statusCard {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                               stop:0 #FFFFFF, stop:1 #EFF5FF);
     border-radius: 8px;
     border: 1px solid #B0C4DE;
+    min-height: 90px;
 }
 
 #statusCard[cardColor="success"] {
@@ -103,7 +117,7 @@ QTabBar::tab:hover:!selected {
     color: #6F6F6F;
 }
 
-/* Кнопки */
+/* Кнопки - адаптивные размеры */
 QPushButton {
     border: 1px solid #B0C4DE;
     border-radius: 5px;
@@ -111,6 +125,7 @@ QPushButton {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                               stop:0 #FFFFFF, stop:1 #E5F0FF);
     color: #0064C8;
+    min-height: 25px;
 }
 
 QPushButton:hover {
@@ -121,6 +136,20 @@ QPushButton:hover {
 QPushButton:pressed {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                               stop:0 #D0E5FF, stop:1 #B0D0F0);
+}
+
+/* Tool кнопки */
+QToolButton {
+    border: 1px solid #B0C4DE;
+    border-radius: 3px;
+    padding: 3px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #FFFFFF, stop:1 #E5F0FF);
+}
+
+QToolButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F0F8FF, stop:1 #D0E5FF);
 }
 
 #primaryButton {
@@ -159,7 +188,7 @@ QPushButton:pressed {
                               stop:0 #EF5350, stop:1 #E53935);
 }
 
-/* Таблицы */
+/* Таблицы - адаптивное отображение */
 QTableView {
     background-color: #FFFFFF;
     alternate-background-color: #F5F9FF;
@@ -167,6 +196,11 @@ QTableView {
     gridline-color: #E0E8F0;
     selection-background-color: #B0D0F0;
     selection-color: #000000;
+}
+
+QTableView::item {
+    padding: 4px;
+    border: none;
 }
 
 QTableView::item:selected {
@@ -182,7 +216,7 @@ QHeaderView::section {
     color: #0064C8;
 }
 
-/* Поля ввода */
+/* Поля ввода - адаптивные */
 QLineEdit, QDateEdit, QSpinBox, QComboBox {
     padding: 4px 8px;
     border: 1px solid #B0C4DE;
@@ -190,6 +224,7 @@ QLineEdit, QDateEdit, QSpinBox, QComboBox {
     background-color: #FFFFFF;
     selection-background-color: #B0D0F0;
     selection-color: #000000;
+    min-height: 25px;
 }
 
 QComboBox::drop-down {
@@ -208,6 +243,7 @@ QComboBox::down-arrow {
     background-color: #FFFFFF;
     border: 1px solid #B0C4DE;
     border-radius: 4px;
+    min-height: 300px;
 }
 
 /* Прогресс-бар */
@@ -216,6 +252,7 @@ QProgressBar {
     border-radius: 4px;
     text-align: center;
     background-color: #F0F8FF;
+    min-height: 20px;
 }
 
 QProgressBar::chunk {
@@ -230,6 +267,7 @@ QGroupBox {
     border-radius: 4px;
     margin-top: 12px;
     background-color: rgba(240, 248, 255, 0.5);
+    padding: 10px;
 }
 
 QGroupBox::title {
@@ -240,15 +278,105 @@ QGroupBox::title {
     color: #0064C8;
 }
 
+QGroupBox:disabled {
+    border: 1px solid #D0D0D0;
+    color: #A0A0A0;
+}
+
+QGroupBox:disabled QLabel {
+    color: #A0A0A0;
+}
+
+/* Кнопки инструментов для графика */
+#chartToolButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #FFFFFF, stop:1 #E5F0FF);
+    border: 1px solid #B0C4DE;
+    border-radius: 3px;
+}
+
+#chartToolButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F0F8FF, stop:1 #D0E5FF);
+}
+
+#chartToolButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #D0E5FF, stop:1 #B0D0F0);
+}
+
 /* Статус-бар */
 QStatusBar {
     background-color: #E5F0FF;
     color: #0064C8;
     border-top: 1px solid #B0C4DE;
+    min-height: 20px;
+}
+
+/* Скроллбары - адаптивные */
+QScrollBar:vertical {
+    border: none;
+    background: #F0F8FF;
+    width: 12px;
+    margin: 12px 0 12px 0;
+    border-radius: 6px;
 }
 
 QScrollBar::handle:vertical {
     background: #B0C4DE;
     min-height: 20px;
     border-radius: 6px;
+}
+
+QScrollBar::add-line:vertical {
+    height: 12px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+    height: 12px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #F0F8FF;
+    height: 12px;
+    margin: 0 12px 0 12px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #B0C4DE;
+    min-width: 20px;
+    border-radius: 6px;
+}
+
+/* Splitter для адаптивных разделителей */
+QSplitter::handle {
+    background-color: #D0E5FF;
+    height: 2px;
+    width: 2px;
+}
+
+QSplitter::handle:hover {
+    background-color: #B0C4DE;
+}
+
+/* Настройки для высоких разрешений экрана */
+@media (resolution >= 120dpi) {
+    QPushButton, QComboBox, QLineEdit {
+        min-height: 28px;
+        font-size: 11pt;
+    }
+    
+    QTableView::item {
+        padding: 6px;
+    }
+    
+    #headerFrame {
+        min-height: 60px;
+    }
 }

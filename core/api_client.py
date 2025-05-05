@@ -1,8 +1,11 @@
 import ccxt
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import time
 from PyQt5.QtCore import QObject, pyqtSignal
+import os
+import json
+import hashlib
 
 
 class ApiClient(QObject):
@@ -15,6 +18,23 @@ class ApiClient(QObject):
         # Создаем только экземпляр KuCoin
         self.exchange = self.create_exchange()
         self.rate_limits = {}  # Отслеживание ограничений по запросам
+        
+        # Инициализация кэша
+        self.cache_dir = os.path.join(os.path.expanduser("~"), ".kucoin_viewer", "cache")
+        os.makedirs(self.cache_dir, exist_ok=True)
+        print(f"Cache directory: {self.cache_dir}")
+        
+        # Словарь с базовыми настройками timeframes
+        self.timeframe_configs = {
+            '1m': {'limit': 1000, 'days_back': 1},
+            '5m': {'limit': 1000, 'days_back': 5},
+            '15m': {'limit': 1000, 'days_back': 10},
+            '30m': {'limit': 1000, 'days_back': 15},
+            '1h': {'limit': 1000, 'days_back': 30},
+            '4h': {'limit': 1000, 'days_back': 60},
+            '1d': {'limit': 500, 'days_back': 365},
+            '1w': {'limit': 200, 'days_back': 730}
+        }
 
     def create_exchange(self):
         """Создает экземпляр биржи KuCoin"""
@@ -23,28 +43,84 @@ class ApiClient(QObject):
             'timeout': 30000,  # Увеличенный таймаут для надежности
         })
 
-    def fetch_ohlcv(self, task_id, symbol, timeframe, since):
-        """Получает OHLCV данные для KuCoin с обработкой rate limits"""
-        print(f"Запрос OHLCV для {symbol} с таймфреймом {timeframe} с {since}")
+    def fetch_ohlcv(self, task_id, symbol, timeframe, since, limit=None, append_mode=False):
+        """
+        Получает OHLCV данные для KuCoin с обработкой rate limits и кэшированием
+        
+        Parameters:
+        - task_id: ID задачи
+        - symbol: Торговая пара (например, 'BTC/USDT')
+        - timeframe: Временной интервал ('1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w')
+        - since: Начальная дата/время для данных
+        - limit: Максимальное количество свечей (если None, используется значение из конфигурации)
+        - append_mode: Если True, данные предназначены для добавления к существующим
+        """
+        print(f"Запрос OHLCV для {symbol} с таймфреймом {timeframe} с {since}, limit={limit}, append_mode={append_mode}")
+        
         try:
+            # Используем стандартные настройки для timeframe, если limit не указан
+            if limit is None:
+                if timeframe in self.timeframe_configs:
+                    limit = self.timeframe_configs[timeframe]['limit']
+                else:
+                    limit = 500  # Значение по умолчанию, если таймфрейм не в конфигурации
+            
             # Преобразуем дату в timestamp
             if isinstance(since, datetime):
+                since_datetime = since
                 since_timestamp = int(since.timestamp() * 1000)
             elif isinstance(since, date):
                 since_datetime = datetime.combine(since, datetime.min.time())
                 since_timestamp = int(since_datetime.timestamp() * 1000)
             else:
                 since_timestamp = int(since * 1000)
+                since_datetime = datetime.fromtimestamp(since)
+
+            # Формируем ключ кэша с учетом лимита
+            cache_key = f"{symbol}_{timeframe}_{since_datetime.strftime('%Y-%m-%d')}_{limit}"
+            
+            # Проверяем кэш перед запросом, только если не в режиме добавления
+            cached_data = None
+            if not append_mode:
+                cached_data = self.get_cached_data(cache_key)
+            
+            if cached_data is not None:
+                print(f"Использованы кэшированные данные для {symbol}")
+                self.request_complete.emit(task_id, cached_data, "")
+                return cached_data
 
             # Попытка получить данные
             try:
-                print(f"Отправляем запрос на KuCoin для {symbol} с таймфреймом {timeframe} с {since}")
-                ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since_timestamp)
+                print(f"Отправляем запрос на KuCoin для {symbol} с таймфреймом {timeframe} с {since}, limit={limit}")
+                ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since_timestamp, limit=limit)
+
+                # Если данных нет или очень мало, попробуем более новые данные
+                if len(ohlcv) < 5:
+                    print(f"Получено слишком мало данных ({len(ohlcv)}), пробуем более новую дату")
+                    # Пробуем запрос за более свежий период, сдвигаемся вперед на половину от запрошенного периода
+                    time_shift = self._get_time_shift_for_timeframe(timeframe)
+                    new_since = since_timestamp + time_shift
+                    ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=new_since, limit=limit)
+                    
+                # Если все еще мало данных, последний шанс - запросить последние свечи
+                if len(ohlcv) < 5:
+                    print(f"Все еще мало данных ({len(ohlcv)}), запрашиваем последние свечи")
+                    ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
 
                 # Преобразуем в DataFrame
                 df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-                print(f"Получены данные для {symbol}: {df.head()}")
+                print(f"Получены данные для {symbol}: {len(df)} записей")
+                print(f"Диапазон дат: с {df['timestamp'].min()} по {df['timestamp'].max()}")
+                
+                # Сохраняем в кэш, только если это не режим добавления
+                if not append_mode:
+                    self.save_to_cache(cache_key, df)
+                
+                # Помечаем данные как предназначенные для добавления, если это режим добавления
+                if append_mode:
+                    df.attrs['append_mode'] = True
+                
                 # Сигнал об успешном завершении
                 self.request_complete.emit(task_id, df, "")
                 return df
@@ -71,6 +147,105 @@ class ApiClient(QObject):
             # Любые другие ошибки
             self.request_complete.emit(task_id, None, str(e))
             return None
+
+    def _get_time_shift_for_timeframe(self, timeframe):
+        """Вычисляет временной сдвиг в миллисекундах для timeframe"""
+        if timeframe == '1m':
+            return 60 * 1000 * 500  # 500 минут
+        elif timeframe == '5m':
+            return 5 * 60 * 1000 * 500  # 2500 минут
+        elif timeframe == '15m':
+            return 15 * 60 * 1000 * 500  # 7500 минут
+        elif timeframe == '30m':
+            return 30 * 60 * 1000 * 500  # 15000 минут
+        elif timeframe == '1h':
+            return 60 * 60 * 1000 * 500  # 500 часов
+        elif timeframe == '4h':
+            return 4 * 60 * 60 * 1000 * 300  # 1200 часов
+        elif timeframe == '1d':
+            return 24 * 60 * 60 * 1000 * 200  # 200 дней
+        elif timeframe == '1w':
+            return 7 * 24 * 60 * 60 * 1000 * 100  # 100 недель
+        else:
+            return 24 * 60 * 60 * 1000 * 7  # 7 дней по умолчанию
+
+    def get_cached_data(self, cache_key):
+        """Получает данные из кэша по ключу"""
+        try:
+            # Создаем хэш ключа для имени файла
+            hashed_key = hashlib.md5(cache_key.encode()).hexdigest()
+            cache_file = os.path.join(self.cache_dir, f"{hashed_key}.json")
+            
+            # Проверяем существование файла
+            if not os.path.exists(cache_file):
+                return None
+                
+            # Проверяем возраст кэша (24 часа)
+            file_age = time.time() - os.path.getmtime(cache_file)
+            if file_age > 86400:  # 24 часа в секундах
+                print(f"Cache expired for {cache_key}")
+                return None
+                
+            # Загружаем данные из файла
+            with open(cache_file, 'r') as f:
+                cache_data = json.load(f)
+                
+            # Преобразуем в DataFrame
+            df = pd.DataFrame(cache_data['data'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            print(f"Loaded from cache: {cache_key}")
+            return df
+            
+        except Exception as e:
+            print(f"Error reading from cache: {e}")
+            # При ошибке чтения кэша возвращаем None
+            return None
+
+    def save_to_cache(self, cache_key, data):
+        """Сохраняет данные в кэш"""
+        try:
+            # Создаем хэш ключа для имени файла
+            hashed_key = hashlib.md5(cache_key.encode()).hexdigest()
+            cache_file = os.path.join(self.cache_dir, f"{hashed_key}.json")
+            
+            # Подготовка данных для сохранения
+            # Преобразуем timestamp в строки ISO для корректной сериализации
+            data_copy = data.copy()
+            data_copy['timestamp'] = data_copy['timestamp'].astype(str)
+            
+            cache_data = {
+                "key": cache_key,
+                "timestamp": datetime.now().isoformat(),
+                "data": data_copy.to_dict(orient='records')
+            }
+            
+            # Сохранение в файл
+            with open(cache_file, 'w') as f:
+                json.dump(cache_data, f)
+                
+            print(f"Saved to cache: {cache_key}")
+            
+        except Exception as e:
+            print(f"Error saving to cache: {e}")
+
+    def clear_cache(self):
+        """Очищает весь кэш или старые записи"""
+        try:
+            count = 0
+            for filename in os.listdir(self.cache_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(self.cache_dir, filename)
+                    # Проверяем возраст файла
+                    file_age = time.time() - os.path.getmtime(file_path)
+                    if file_age > 86400:  # Старше 24 часов
+                        os.remove(file_path)
+                        count += 1
+            print(f"Cleared {count} old cache entries")
+            return count
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
+            return 0
 
     def extract_reset_time(self, exception):
         """Извлекает время сброса ограничения из исключения KuCoin"""

@@ -1,0 +1,36 @@
+/* Data Navigation Button Styles */
+#navButton {
+    background-color: rgba(45, 45, 55, 0.7);
+    border: 1px solid rgba(100, 100, 120, 0.5);
+    border-radius: 4px;
+    color: #e0e0e0;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+#navButton:hover {
+    background-color: rgba(60, 60, 75, 0.9);
+    border-color: #4CAF50;
+}
+
+#navButton:disabled {
+    background-color: rgba(45, 45, 55, 0.3);
+    border-color: rgba(100, 100, 120, 0.3);
+    color: #707070;
+}
+
+/* Data Range Label */
+#dataRangeLabel {
+    color: #b0b0b0;
+    font-size: 12px;
+    background-color: rgba(35, 35, 45, 0.5);
+    border-radius: 4px;
+    padding: 3px 8px;
+}
+
+/* Data Navigation Frame */
+#dataNavFrame {
+    background-color: rgba(35, 35, 45, 0.3);
+    border-radius: 4px;
+    margin-bottom: 5px;
+}

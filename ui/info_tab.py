@@ -1,14 +1,18 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
                              QLabel, QPushButton, QDateEdit, QCheckBox,
                              QFrame, QToolButton, QSizePolicy, QSplitter,
-                             QLineEdit, QCompleter, QAction, QMenu, QApplication)
-from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel  # Добавлен импорт QStringListModel
+                             QLineEdit, QCompleter, QAction, QMenu, QApplication,
+                             QScrollArea, QMessageBox, QFileDialog)
+from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel
 from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.offline import plot
 import pandas as pd
+import json
+import os
+from datetime import datetime, timedelta
 
 
 class PairSelector(QFrame):
@@ -24,11 +28,13 @@ class PairSelector(QFrame):
     def init_ui(self):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)  # Уменьшаем расстояние между элементами
 
         # Поле ввода с автодополнением
         self.pair_input = QLineEdit()
         self.pair_input.setObjectName("pairInput")
         self.pair_input.setPlaceholderText("Enter or select trading pair...")
+        self.pair_input.setMaximumHeight(28)  # Ограничиваем высоту поля ввода
 
         # Создаем автодополнение
         self.completer = QCompleter([])
@@ -40,6 +46,7 @@ class PairSelector(QFrame):
         self.select_btn.setIcon(QIcon("resources/icons/dropdown.png"))
         self.select_btn.setPopupMode(QToolButton.InstantPopup)
         self.select_btn.setObjectName("pairSelectButton")
+        self.select_btn.setMaximumSize(28, 28)  # Уменьшаем размер кнопки
 
         # Создаем меню
         self.pair_menu = QMenu()
@@ -50,6 +57,7 @@ class PairSelector(QFrame):
         self.copy_btn.setIcon(QIcon("resources/icons/copy.png"))
         self.copy_btn.setToolTip("Copy pair name")
         self.copy_btn.setObjectName("copyButton")
+        self.copy_btn.setMaximumSize(28, 28)  # Уменьшаем размер кнопки
         self.copy_btn.clicked.connect(self.copy_pair)
 
         # Добавляем виджеты в layout
@@ -122,42 +130,33 @@ class ChartToolBar(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("chartToolBar")
+        self.setMaximumHeight(36)  # Ограничиваем высоту тулбара
 
         # Создаем горизонтальный layout
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(2, 2, 2, 2)  # Уменьшаем отступы
+        layout.setSpacing(4)  # Уменьшаем расстояние между кнопками
 
-        # Кнопки инструментов для графика
-        self.zoom_in_btn = QToolButton()
-        self.zoom_in_btn.setIcon(QIcon("resources/icons/zoom_in.png"))
-        self.zoom_in_btn.setIconSize(QSize(18, 18))
-        self.zoom_in_btn.setToolTip("Zoom In")
-        self.zoom_in_btn.setObjectName("chartToolButton")
+        # Добавляем инструменты для экспорта данных
+        button_size = QSize(16, 16)
+        
+        self.manual_save_btn = QToolButton()
+        self.manual_save_btn.setIcon(QIcon("resources/icons/save.png"))
+        self.manual_save_btn.setIconSize(button_size)
+        self.manual_save_btn.setToolTip("Manual Save (Full Dataset)")
+        self.manual_save_btn.setObjectName("chartToolButton")
+        self.manual_save_btn.setMaximumSize(24, 24)
 
-        self.zoom_out_btn = QToolButton()
-        self.zoom_out_btn.setIcon(QIcon("resources/icons/zoom_out.png"))
-        self.zoom_out_btn.setIconSize(QSize(18, 18))
-        self.zoom_out_btn.setToolTip("Zoom Out")
-        self.zoom_out_btn.setObjectName("chartToolButton")
-
-        self.reset_btn = QToolButton()
-        self.reset_btn.setIcon(QIcon("resources/icons/reset.png"))
-        self.reset_btn.setIconSize(QSize(18, 18))
-        self.reset_btn.setToolTip("Reset View")
-        self.reset_btn.setObjectName("chartToolButton")
-
-        self.save_img_btn = QToolButton()
-        self.save_img_btn.setIcon(QIcon("resources/icons/save.png"))
-        self.save_img_btn.setIconSize(QSize(18, 18))
-        self.save_img_btn.setToolTip("Save as Image")
-        self.save_img_btn.setObjectName("chartToolButton")
+        self.fast_save_btn = QToolButton()
+        self.fast_save_btn.setIcon(QIcon("resources/icons/export.png"))
+        self.fast_save_btn.setIconSize(button_size)
+        self.fast_save_btn.setToolTip("Fast-Save (Selected Data)")
+        self.fast_save_btn.setObjectName("chartToolButton")
+        self.fast_save_btn.setMaximumSize(24, 24)
 
         # Добавляем кнопки в layout
-        layout.addWidget(self.zoom_in_btn)
-        layout.addWidget(self.zoom_out_btn)
-        layout.addWidget(self.reset_btn)
-        layout.addSpacing(20)
-        layout.addWidget(self.save_img_btn)
+        layout.addWidget(self.manual_save_btn)
+        layout.addWidget(self.fast_save_btn)
         layout.addStretch()
 
 
@@ -170,33 +169,35 @@ class IndicatorPanel(QFrame):
 
         # Создаем вертикальный layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(5, 5, 5, 5)  # Уменьшаем отступы
+        layout.setSpacing(2)  # Уменьшаем расстояние между элементами
 
         # Заголовок
         title = QLabel("Indicators")
         title.setObjectName("panelTitle")
+        title.setMaximumHeight(20)  # Уменьшаем высоту заголовка
         layout.addWidget(title)
 
-        # Индикаторы
-        self.ma_check = QCheckBox("Moving Average")
+        # Индикаторы - уменьшаем размер чекбоксов
+        self.ma_check = QCheckBox("MA")  # Сокращаем текст
         self.ma_check.setObjectName("indicatorCheck")
-        self.ma_check.stateChanged.connect(self.on_indicator_changed)
+        self.ma_check.stateChanged.connect(self.indicatorChanged)
 
         self.ema_check = QCheckBox("EMA")
         self.ema_check.setObjectName("indicatorCheck")
-        self.ema_check.stateChanged.connect(self.on_indicator_changed)
+        self.ema_check.stateChanged.connect(self.indicatorChanged)
 
         self.rsi_check = QCheckBox("RSI")
         self.rsi_check.setObjectName("indicatorCheck")
-        self.rsi_check.stateChanged.connect(self.on_indicator_changed)
+        self.rsi_check.stateChanged.connect(self.indicatorChanged)
 
         self.macd_check = QCheckBox("MACD")
         self.macd_check.setObjectName("indicatorCheck")
-        self.macd_check.stateChanged.connect(self.on_indicator_changed)
+        self.macd_check.stateChanged.connect(self.indicatorChanged)
 
-        self.bollinger_check = QCheckBox("Bollinger Bands")
+        self.bollinger_check = QCheckBox("BB")  # Сокращаем текст
         self.bollinger_check.setObjectName("indicatorCheck")
-        self.bollinger_check.stateChanged.connect(self.on_indicator_changed)
+        self.bollinger_check.stateChanged.connect(self.indicatorChanged)
 
         # Добавляем индикаторы в layout
         layout.addWidget(self.ma_check)
@@ -206,9 +207,6 @@ class IndicatorPanel(QFrame):
         layout.addWidget(self.bollinger_check)
         layout.addStretch()
 
-    def on_indicator_changed(self):
-        self.indicatorChanged.emit()
-
 
 class InfoTab(QWidget):
     def __init__(self, api_client, request_queue):
@@ -217,114 +215,185 @@ class InfoTab(QWidget):
         self.request_queue = request_queue
         self.data = None  # Для хранения текущих данных
         self.current_symbol = "BTC/USDT"  # Пара по умолчанию
+        self.data_loaded = False  # Флаг загрузки данных
         self.init_ui()
 
     def init_ui(self):
         # Основной layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(5, 5, 5, 5)  # Уменьшаем отступы
+        layout.setSpacing(5)  # Уменьшаем расстояние между элементами
 
-        # Верхняя панель с контролами
+        # Используем прокручиваемую область для малых экранов
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(10)
+
+        # Верхняя панель с контролами - делаем её компактнее
         controls_frame = QFrame()
         controls_frame.setObjectName("controlsFrame")
+        controls_frame.setMaximumHeight(60)  # Ограничиваем высоту панели контролов
         controls_layout = QHBoxLayout(controls_frame)
+        controls_layout.setContentsMargins(5, 5, 5, 5)  # Уменьшаем отступы
+        controls_layout.setSpacing(5)  # Уменьшаем расстояние между элементами
 
         # Селектор торговой пары
         pair_layout = QVBoxLayout()
+        pair_layout.setSpacing(2)  # Уменьшаем расстояние
         pair_label = QLabel("Trading Pair")
         pair_label.setObjectName("controlLabel")
+        pair_label.setMaximumHeight(16)  # Уменьшаем высоту метки
         self.pair_selector = PairSelector(self.api_client)
         self.pair_selector.pairSelected.connect(self.on_pair_selected)
+        self.pair_selector.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         pair_layout.addWidget(pair_label)
         pair_layout.addWidget(self.pair_selector)
-        controls_layout.addLayout(pair_layout)
+        controls_layout.addLayout(pair_layout, 2)
 
         # Выбор таймфрейма
         timeframe_layout = QVBoxLayout()
+        timeframe_layout.setSpacing(2)  # Уменьшаем расстояние
         timeframe_label = QLabel("Timeframe")
         timeframe_label.setObjectName("controlLabel")
+        timeframe_label.setMaximumHeight(16)  # Уменьшаем высоту метки
         self.timeframe_combo = QComboBox()
         self.timeframe_combo.addItems(["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"])
         self.timeframe_combo.setCurrentText("1h")
         self.timeframe_combo.setObjectName("styledComboBox")
+        self.timeframe_combo.setMaximumHeight(28)  # Ограничиваем высоту комбобокса
         timeframe_layout.addWidget(timeframe_label)
         timeframe_layout.addWidget(self.timeframe_combo)
-        controls_layout.addLayout(timeframe_layout)
+        controls_layout.addLayout(timeframe_layout, 1)
 
         # Выбор даты
         date_layout = QVBoxLayout()
+        date_layout.setSpacing(2)  # Уменьшаем расстояние
         date_label = QLabel("From Date")
         date_label.setObjectName("controlLabel")
+        date_label.setMaximumHeight(16)  # Уменьшаем высоту метки
         self.date_edit = QDateEdit(QDateTime.currentDateTime().addDays(-7).date())
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setObjectName("styledDateEdit")
+        self.date_edit.setMaximumHeight(28)  # Ограничиваем высоту датапикера
         date_layout.addWidget(date_label)
         date_layout.addWidget(self.date_edit)
-        controls_layout.addLayout(date_layout)
+        controls_layout.addLayout(date_layout, 1)
 
         # Кнопка загрузки
         load_layout = QVBoxLayout()
+        load_layout.setSpacing(2)  # Уменьшаем расстояние
         # Добавляем пустую метку для выравнивания
         load_layout.addWidget(QLabel(""))
-        self.load_btn = QPushButton("Load Data")
+        self.load_btn = QPushButton("Load")  # Сокращаем текст кнопки
         self.load_btn.setObjectName("primaryButton")
         self.load_btn.setIcon(QIcon("resources/icons/download.png"))
+        self.load_btn.setIconSize(QSize(16, 16))  # Уменьшаем размер иконки
         self.load_btn.clicked.connect(self.load_data)
+        self.load_btn.setMaximumHeight(28)  # Ограничиваем высоту кнопки
         load_layout.addWidget(self.load_btn)
-        controls_layout.addLayout(load_layout)
+        controls_layout.addLayout(load_layout, 1)
 
-        # Добавляем растягивающийся элемент для выравнивания
-        controls_layout.addStretch(1)
-
-        # Добавляем верхнюю панель в основной layout
-        layout.addWidget(controls_frame)
+        # Добавляем верхнюю панель в scroll_layout
+        scroll_layout.addWidget(controls_frame)
+        
+        # Добавляем панель с кнопками для загрузки дополнительных данных
+        data_nav_frame = QFrame()
+        data_nav_frame.setObjectName("dataNavFrame")
+        data_nav_layout = QHBoxLayout(data_nav_frame)
+        data_nav_layout.setContentsMargins(5, 0, 5, 0)
+        
+        # Кнопка для загрузки предыдущего периода
+        self.load_prev_btn = QPushButton("← Load Previous")
+        self.load_prev_btn.setObjectName("navButton")
+        self.load_prev_btn.setIcon(QIcon("resources/icons/arrow-left.png"))
+        self.load_prev_btn.clicked.connect(self.load_previous_period)
+        self.load_prev_btn.setEnabled(False)
+        
+        # Индикатор загруженных данных
+        self.data_range_label = QLabel("No data loaded")
+        self.data_range_label.setObjectName("dataRangeLabel")
+        self.data_range_label.setAlignment(Qt.AlignCenter)
+        
+        # Кнопка для загрузки следующего периода
+        self.load_next_btn = QPushButton("Load Next →")
+        self.load_next_btn.setObjectName("navButton")
+        self.load_next_btn.setIcon(QIcon("resources/icons/arrow-right.png"))
+        self.load_next_btn.setIconSize(QSize(16, 16))
+        self.load_next_btn.clicked.connect(self.load_next_period)
+        self.load_next_btn.setEnabled(False)
+        
+        data_nav_layout.addWidget(self.load_prev_btn)
+        data_nav_layout.addWidget(self.data_range_label, 1)
+        data_nav_layout.addWidget(self.load_next_btn)
+        
+        scroll_layout.addWidget(data_nav_frame)
 
         # Создаем сплиттер для графика и панели индикаторов
         splitter = QSplitter(Qt.Horizontal)
         splitter.setObjectName("mainSplitter")
+        splitter.setHandleWidth(4)  # Делаем ручку сплиттера тоньше
+        splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Важное изменение!
 
         # Создаем контейнер для графика
         chart_container = QFrame()
         chart_container.setObjectName("chartContainer")
+        chart_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Расширяем в обоих направлениях
         chart_layout = QVBoxLayout(chart_container)
-        chart_layout.setContentsMargins(0, 0, 0, 0)
+        chart_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы полностью
+        chart_layout.setSpacing(0)  # Убираем расстояние между элементами
 
         # Добавляем панель инструментов для графика
         self.chart_toolbar = ChartToolBar()
         chart_layout.addWidget(self.chart_toolbar)
 
-        # Область для графика
+        # Область для графика - самое важное изменение
         self.browser = QWebEngineView()
-        chart_layout.addWidget(self.browser)
+        self.browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Удаляем минимальную высоту, позволяя графику адаптироваться
+        chart_layout.addWidget(self.browser, 1)  # Даем графику приоритет в распределении пространства
 
-        # Панель индикаторов
+        # Панель индикаторов - делаем её уже
         self.indicator_panel = IndicatorPanel()
         self.indicator_panel.indicatorChanged.connect(self.update_indicators)
+        self.indicator_panel.setMinimumWidth(100)  # Уменьшаем минимальную ширину
+        self.indicator_panel.setMaximumWidth(150)  # Ограничиваем максимальную ширину
 
         # Добавляем в сплиттер
         splitter.addWidget(chart_container)
         splitter.addWidget(self.indicator_panel)
 
-        # Устанавливаем соотношение размеров
-        splitter.setSizes([800, 200])
+        # Устанавливаем соотношение размеров - даем графику больше места
+        splitter.setSizes([850, 100])
 
-        # Добавляем сплиттер в основной layout
-        layout.addWidget(splitter)
+        # Добавляем сплиттер в основной layout с приоритетом
+        scroll_layout.addWidget(splitter, 1)  # Даем сплиттеру приоритет для заполнения пространства
+
+        # Устанавливаем контент для области прокрутки
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
 
         # Инициализируем пустой график
         self.create_empty_chart()
 
         # Подключаем события к тулбару
-        self.chart_toolbar.save_img_btn.clicked.connect(self.save_chart_image)
+        self.chart_toolbar.manual_save_btn.clicked.connect(self.save_data_json)
+        self.chart_toolbar.fast_save_btn.clicked.connect(self.save_selected_data)
 
         # Загружаем данные для пары по умолчанию
         self.load_data()
 
     def on_pair_selected(self, symbol):
         """Обработчик выбора торговой пары"""
-        self.current_symbol = symbol
-        self.load_data()
+        if symbol != self.current_symbol:
+            self.current_symbol = symbol
+            self.data = None  # Сбрасываем текущие данные при смене пары
+            self.data_loaded = False
+            self.load_data()
 
     def create_empty_chart(self):
         # Создаем пустой график с сообщением
@@ -349,53 +418,90 @@ class InfoTab(QWidget):
         html = plot(fig, output_type='div', include_plotlyjs='cdn')
         self.browser.setHtml(html)
 
-    def load_data(self):
+    def load_data(self, append_mode=False, direction=None):
+        """
+        Загружает данные для выбранной пары и периода
+        
+        Parameters:
+        - append_mode: если True, добавляет данные к существующим
+        - direction: 'prev' или 'next' для загрузки предыдущего или следующего периода
+        """
         symbol = self.current_symbol
         timeframe = self.timeframe_combo.currentText()
-        since = self.date_edit.date().toPyDate()
+        
+        # Определяем дату начала в зависимости от режима и направления
+        if append_mode and self.data is not None:
+            if direction == 'prev':
+                # Для предыдущего периода используем самую раннюю дату в текущих данных
+                earliest_date = self.data['timestamp'].min()
+                
+                # Вычисляем размер шага назад в зависимости от таймфрейма
+                time_shift = self._get_timeframe_shift(timeframe)
+                since_date = earliest_date - time_shift
+                
+                print(f"Загрузка предыдущего периода с {since_date}")
+            elif direction == 'next':
+                # Для следующего периода используем самую позднюю дату в текущих данных
+                latest_date = self.data['timestamp'].max()
+                since_date = latest_date
+                print(f"Загрузка следующего периода с {latest_date}")
+            else:
+                # Если направление не указано, используем стандартную дату
+                since_date = self.date_edit.date().toPyDate()
+        else:
+            # При первичной загрузке используем дату из UI
+            since_date = self.date_edit.date().toPyDate()
 
         # Изменяем текст кнопки
         self.load_btn.setText("Loading...")
         self.load_btn.setEnabled(False)
+        
+        # Отключаем навигационные кнопки на время загрузки
+        self.load_prev_btn.setEnabled(False)
+        self.load_next_btn.setEnabled(False)
 
         # Детальное логирование
-        print(f"DEBUG: Загружаем {symbol} с таймфреймом {timeframe} с {since}")
+        print(f"DEBUG: Загружаем {symbol} с таймфреймом {timeframe} с {since_date}, append_mode={append_mode}, direction={direction}")
 
         if hasattr(self.parent(), "statusBar"):
             self.parent().statusBar().showMessage(f"Загрузка {symbol}, таймфрейм: {timeframe}")
 
         # Показываем загрузочное сообщение с деталями
-        loading_fig = go.Figure()
-        loading_fig.add_annotation(
-            text=f"Загрузка данных для {symbol}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.6, showarrow=False,
-            font=dict(size=20, color="#4CAF50")
-        )
+        if not append_mode:
+            loading_fig = go.Figure()
+            loading_fig.add_annotation(
+                text=f"Загрузка данных для {symbol}",
+                xref="paper", yref="paper",
+                x=0.5, y=0.6, showarrow=False,
+                font=dict(size=20, color="#4CAF50")
+            )
 
-        loading_fig.add_annotation(
-            text=f"Таймфрейм: {timeframe}, с даты: {since.strftime('%d.%m.%Y')}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16, color="#FFFFFF")
-        )
+            loading_fig.add_annotation(
+                text=f"Таймфрейм: {timeframe}, с даты: {since_date.strftime('%d.%m.%Y') if hasattr(since_date, 'strftime') else str(since_date)}",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16, color="#FFFFFF")
+            )
 
-        loading_fig.add_annotation(
-            text="Пожалуйста, подождите...",
-            xref="paper", yref="paper",
-            x=0.5, y=0.4, showarrow=False,
-            font=dict(size=14, color="#AAAAAA")
-        )
+            loading_fig.add_annotation(
+                text="Пожалуйста, подождите...",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(size=14, color="#AAAAAA")
+            )
 
-        loading_fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor='rgba(25, 25, 35, 1)',
-            plot_bgcolor='rgba(25, 25, 35, 1)',
-            margin=dict(l=10, r=10, t=50, b=10),
-        )
+            loading_fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor='rgba(25, 25, 35, 1)',
+                plot_bgcolor='rgba(25, 25, 35, 1)',
+                margin=dict(l=10, r=10, t=50, b=10),
+            )
 
-        html = plot(loading_fig, output_type='div', include_plotlyjs='cdn')
-        self.browser.setHtml(html)
+            html = plot(loading_fig, output_type='div', include_plotlyjs='cdn')
+            self.browser.setHtml(html)
+
+        # Определяем лимит на основе таймфрейма
+        limit = self._get_limit_for_timeframe(timeframe)
 
         # Добавляем запрос в очередь
         task_id = self.request_queue.add_request(
@@ -403,10 +509,54 @@ class InfoTab(QWidget):
             exchange="kucoin",  # Только KuCoin
             symbol=symbol,
             timeframe=timeframe,
-            since=since,
-            callback=self.update_chart
+            since=since_date,
+            callback=lambda data, error: self.update_chart(data, error, append_mode, direction),
+            limit=limit
         )
         print(f"DEBUG: Запрос добавлен в очередь, ID задачи: {task_id}")
+
+    def _get_timeframe_shift(self, timeframe):
+        """Вычисляет смещение времени на основе таймфрейма"""
+        if timeframe == '1m':
+            return timedelta(hours=16)
+        elif timeframe == '5m':
+            return timedelta(days=3)
+        elif timeframe == '15m':
+            return timedelta(days=7)
+        elif timeframe == '30m':
+            return timedelta(days=14)
+        elif timeframe == '1h':
+            return timedelta(days=20)
+        elif timeframe == '4h':
+            return timedelta(days=40)
+        elif timeframe == '1d':
+            return timedelta(days=100)
+        elif timeframe == '1w':
+            return timedelta(weeks=20)
+        else:
+            return timedelta(days=7)  # По умолчанию
+
+    def _get_limit_for_timeframe(self, timeframe):
+        """Определяет оптимальный лимит для каждого таймфрейма"""
+        limits = {
+            '1m': 1000,
+            '5m': 1000,
+            '15m': 1000,
+            '30m': 1000,
+            '1h': 1000,
+            '4h': 750,
+            '1d': 365,
+            '1w': 200
+        }
+        return limits.get(timeframe, 500)  # По умолчанию 500 свечей
+
+    def load_previous_period(self):
+        """Загружает данные за предыдущий период"""
+        self.load_data(append_mode=True, direction='prev')
+
+    def load_next_period(self):
+        """Загружает данные за следующий период"""
+        self.load_data(append_mode=True, direction='next')
 
     def fetch_top_pairs(self, limit=12):
         """Получает топ-12 пар с USDT по объему"""
@@ -439,7 +589,16 @@ class InfoTab(QWidget):
                     'ADA/USDT', 'SHIB/USDT', 'TRX/USDT', 'DOT/USDT',
                     'AVAX/USDT', 'MATIC/USDT', 'LTC/USDT']
 
-    def update_chart(self, data, error=None):
+    def update_chart(self, new_data, error=None, append_mode=False, direction=None):
+        """
+        Обновляет график с новыми данными
+        
+        Parameters:
+        - new_data: новые данные для отображения
+        - error: сообщение об ошибке (если есть)
+        - append_mode: если True, добавляет данные к существующим
+        - direction: 'prev' или 'next' для указания направления добавления данных
+        """
         # Восстанавливаем кнопку
         self.load_btn.setText("Load Data")
         self.load_btn.setEnabled(True)
@@ -450,55 +609,105 @@ class InfoTab(QWidget):
         if error:
             error_message = f"Ошибка: {error}"
             print(f"DEBUG: Ошибка при обновлении графика: {error}")
+            
+            # Отображение ошибки только если не в режиме добавления
+            if not append_mode:
+                error_fig = go.Figure()
+                error_fig.add_annotation(
+                    text=error_message,
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.55, showarrow=False,
+                    font=dict(size=18, color="#F44336")
+                )
 
-            error_fig = go.Figure()
-            error_fig.add_annotation(
-                text=error_message,
-                xref="paper", yref="paper",
-                x=0.5, y=0.55, showarrow=False,
-                font=dict(size=18, color="#F44336")
-            )
+                error_fig.add_annotation(
+                    text="Попробуйте изменить параметры и повторить запрос",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.45, showarrow=False,
+                    font=dict(size=14, color="#FFFFFF")
+                )
 
-            error_fig.add_annotation(
-                text="Попробуйте изменить параметры и повторить запрос",
-                xref="paper", yref="paper",
-                x=0.5, y=0.45, showarrow=False,
-                font=dict(size=14, color="#FFFFFF")
-            )
+                error_fig.update_layout(
+                    template="plotly_light",
+                    paper_bgcolor='rgba(25, 25, 35, 1)',
+                    plot_bgcolor='rgba(25, 25, 35, 1)',
+                    margin=dict(l=10, r=10, t=50, b=10),
+                )
 
-            error_fig.update_layout(
-                template="plotly_light",
-                paper_bgcolor='rgba(25, 25, 35, 1)',
-                plot_bgcolor='rgba(25, 25, 35, 1)',
-                margin=dict(l=10, r=10, t=50, b=10),
-            )
-
-            html = plot(error_fig, output_type='div', include_plotlyjs='cdn')
-            self.browser.setHtml(html)
+                html = plot(error_fig, output_type='div', include_plotlyjs='cdn')
+                self.browser.setHtml(html)
 
             if hasattr(self.parent(), "statusBar"):
                 self.parent().statusBar().showMessage(f"Ошибка: {error}", 5000)
 
+            # Включаем навигационные кнопки, если данные уже были загружены
+            if self.data_loaded:
+                self.load_prev_btn.setEnabled(True)
+                self.load_next_btn.setEnabled(True)
+                
             return
 
-        # Сохраняем данные
-        self.data = data
-        print(f"DEBUG: Данные успешно получены, количество записей: {len(data)}")
-        print(f"DEBUG: Диапазон данных: с {data['timestamp'].min()} по {data['timestamp'].max()}")
+        # Обработка новых данных
+        if new_data is not None and len(new_data) > 0:
+            if append_mode and self.data is not None:
+                # Объединение данных в зависимости от направления
+                print(f"Объединение данных. Старых: {len(self.data)}, новых: {len(new_data)}")
+                
+                # Объединяем датафреймы и удаляем дубликаты
+                combined_data = pd.concat([self.data, new_data])
+                combined_data = combined_data.drop_duplicates(subset=['timestamp']).sort_values('timestamp')
+                
+                # Сохраняем объединенные данные
+                self.data = combined_data
+                print(f"Данные объединены. Итого: {len(self.data)} записей")
+                print(f"Диапазон данных: с {self.data['timestamp'].min()} по {self.data['timestamp'].max()}")
+            else:
+                # Сохраняем новые данные
+                self.data = new_data
+                print(f"Новые данные загружены. Количество записей: {len(self.data)}")
+                print(f"Диапазон данных: с {self.data['timestamp'].min()} по {self.data['timestamp'].max()}")
 
-        # Обновляем график с данными и индикаторами
-        fig = make_subplots(rows=1, cols=1, shared_xaxes=True)
-        fig.add_trace(go.Candlestick(
-            x=data['timestamp'],
-            open=data['open'],
-            high=data['high'],
-            low=data['low'],
-            close=data['close'],
-            name="OHLC"
-        ))
-        fig.update_layout(title=f"{self.current_symbol} Price Chart")
-        html = plot(fig, output_type='div', include_plotlyjs='cdn')
-        self.browser.setHtml(html)
+            # Обновляем метку диапазона данных
+            self._update_data_range_label()
+            
+            # Устанавливаем флаг загрузки данных
+            self.data_loaded = True
+            
+            # Включаем навигационные кнопки
+            self.load_prev_btn.setEnabled(True)
+            self.load_next_btn.setEnabled(True)
+            
+            # Обновляем график с учетом индикаторов
+            self.update_indicators()
+        else:
+            # Если нет новых данных и нет старых данных
+            if not self.data_loaded:
+                no_data_fig = go.Figure()
+                no_data_fig.add_annotation(
+                    text="Нет данных для отображения",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.5, showarrow=False,
+                    font=dict(size=18, color="#FFFFFF")
+                )
+                no_data_fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor='rgba(25, 25, 35, 1)',
+                    plot_bgcolor='rgba(25, 25, 35, 1)',
+                    margin=dict(l=10, r=10, t=50, b=10),
+                )
+                html = plot(no_data_fig, output_type='div', include_plotlyjs='cdn')
+                self.browser.setHtml(html)
+
+    def _update_data_range_label(self):
+        """Обновляет метку с информацией о диапазоне загруженных данных"""
+        if self.data is not None and len(self.data) > 0:
+            min_date = self.data['timestamp'].min().strftime('%d.%m.%Y')
+            max_date = self.data['timestamp'].max().strftime('%d.%m.%Y')
+            count = len(self.data)
+            self.data_range_label.setText(f"Data: {min_date} - {max_date} ({count} candles)")
+        else:
+            self.data_range_label.setText("No data loaded")
+
     def update_indicators(self):
         if self.data is None:
             return
@@ -731,11 +940,203 @@ class InfoTab(QWidget):
             # Добавляем белый цвет для подписей на оси Y второй диаграммы
             fig.update_yaxes(tickfont=dict(color="white"), row=2, col=1)
 
+        # В конце метода обновляем настройки компоновки
+        if self.data is not None:
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
+                plot_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
+                title=dict(
+                    text=f"{symbol} Price Chart ({timeframe})",
+                    font=dict(size=20, color='white')  # Белый цвет для заголовка
+                ),
+                legend=dict(
+                    bgcolor='rgba(25, 25, 35, 0.8)',
+                    bordercolor='rgba(255, 255, 255, 0.3)',  # Увеличил контраст рамки
+                    borderwidth=1,
+                    font=dict(color="white")  # Белый цвет для текста легенды
+                ),
+                hovermode="x unified",
+                hoverdistance=100,
+                spikedistance=1000,
+                xaxis=dict(
+                    showspikes=True,
+                    spikesnap="cursor",
+                    spikemode="across",
+                    spikethickness=1,
+                    spikecolor="rgba(255, 255, 255, 0.7)",  # Более заметная линия
+                    showgrid=True,
+                    gridcolor='rgba(255, 255, 255, 0.2)',  # Увеличил контраст сетки
+                    tickfont=dict(color="white")  # Белый цвет для подписей по оси X
+                ),
+                yaxis=dict(
+                    showspikes=True,
+                    spikesnap="cursor",
+                    spikemode="across",
+                    spikethickness=1,
+                    spikecolor="rgba(255, 255, 255, 0.7)",  # Более заметная линия
+                    showgrid=True,
+                    gridcolor='rgba(255, 255, 255, 0.2)',  # Увеличил контраст сетки
+                    tickfont=dict(color="white")  # Белый цвет для подписей по оси Y
+                ),
+                margin=dict(l=5, r=5, t=40, b=5),  # Уменьшаем отступы графика
+                autosize=True,  # Автоматическое изменение размера
+            )
+
         # Отображаем график
         html = plot(fig, output_type='div', include_plotlyjs='cdn', config={'responsive': True})
         self.browser.setHtml(html)
 
-    def save_chart_image(self):
-        # Заглушка для функции сохранения изображения
-        print("Save chart as image functionality would go here")
-        # В реальной реализации здесь был бы код для сохранения текущего графика
+    def save_data_json(self):
+        """Сохраняет все текущие данные в JSON файл"""
+        if self.data is None or self.data.empty:
+            QMessageBox.warning(self, "No Data", "There is no data to save.")
+            return
+
+        # Получаем путь для сохранения
+        default_dir = os.path.expanduser("~/crypto_data")
+        os.makedirs(default_dir, exist_ok=True)
+        
+        default_filename = f"{self.current_symbol.replace('/', '_')}_{self.timeframe_combo.currentText()}_{self.date_edit.date().toString('yyyy-MM-dd')}.json"
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Full Data as JSON", 
+            os.path.join(default_dir, default_filename),
+            "JSON Files (*.json)"
+        )
+        
+        if filepath:
+            try:
+                # Преобразуем DataFrame в формат JSON
+                json_data = {
+                    "metadata": {
+                        "symbol": self.current_symbol,
+                        "timeframe": self.timeframe_combo.currentText(),
+                        "from_date": self.date_edit.date().toString('yyyy-MM-dd'),
+                        "export_time": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "export_type": "full_dataset"
+                    },
+                    "data": self.data.to_dict(orient='records')
+                }
+                
+                # Сохраняем в файл
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(json_data, f, ensure_ascii=False, indent=4, default=str)  # default=str для обработки Timestamp
+                
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage(f"Full data saved to {filepath}", 5000)
+                print(f"DEBUG: Данные сохранены в {filepath}")
+            except Exception as e:
+                QMessageBox.critical(self, "Save Error", f"Failed to save data: {str(e)}")
+                print(f"DEBUG: Ошибка при сохранении данных: {e}")
+
+    def save_selected_data(self):
+        """Сохраняет только выбранный/видимый на графике диапазон данных"""
+        if self.data is None or self.data.empty:
+            QMessageBox.warning(self, "No Data", "There is no data to save.")
+            return
+            
+        # Улучшенный JavaScript для извлечения выбранного диапазона из Plotly
+        script = """
+        var rangeData = {};
+        try {
+            // Находим элемент графика Plotly
+            var plotlyDiv = document.querySelector('.js-plotly-plot');
+            if (plotlyDiv && plotlyDiv._fullLayout) {
+                // Проверяем, есть ли у графика данные о выбранном диапазоне
+                if (plotlyDiv._fullLayout.xaxis && plotlyDiv._fullLayout.xaxis.range) {
+                    rangeData.xRange = plotlyDiv._fullLayout.xaxis.range;
+                    rangeData.success = true;
+                } else {
+                    // Если диапазон не выбран, используем весь видимый диапазон
+                    rangeData.xRange = [
+                        plotlyDiv._fullData[0].x[0],
+                        plotlyDiv._fullData[0].x[plotlyDiv._fullData[0].x.length - 1]
+                    ];
+                    rangeData.success = true;
+                }
+            } else {
+                rangeData.success = false;
+                rangeData.error = "Cannot find Plotly graph or layout";
+            }
+        } catch (e) {
+            rangeData.success = false;
+            rangeData.error = e.toString();
+        }
+        return rangeData;
+        """
+        
+        # Запускаем JavaScript и передаем результат в обработчик
+        self.browser.page().runJavaScript(script, self.on_range_received)
+
+    def on_range_received(self, range_data):
+        """Обработчик получения данных о выбранном диапазоне из JavaScript"""
+        if not range_data or not range_data.get('success', False):
+            error_msg = range_data.get('error', 'Unknown error') if range_data else 'Failed to get range data'
+            QMessageBox.warning(self, "Selection Error", 
+                              f"Unable to determine selected range: {error_msg}\n"
+                              "Try zooming or selecting an area on the chart first.")
+            return
+            
+        try:
+            # Извлекаем диапазон дат
+            x_range = range_data.get('xRange', [])
+            
+            if not x_range or len(x_range) < 2:
+                QMessageBox.warning(self, "Selection Error", 
+                                   "Invalid date range received from chart.")
+                return
+                
+            # Преобразуем строки дат из plotly в datetime
+            start_date = pd.to_datetime(x_range[0])
+            end_date = pd.to_datetime(x_range[1])
+            
+            # Фильтруем данные по выбранному диапазону
+            selected_data = self.data[(self.data['timestamp'] >= start_date) & 
+                                      (self.data['timestamp'] <= end_date)]
+            
+            if selected_data.empty:
+                QMessageBox.warning(self, "Selection Error", 
+                                   "No data points in the selected range.")
+                return
+                
+            # Получаем путь для сохранения
+            default_dir = os.path.expanduser("~/crypto_data")
+            os.makedirs(default_dir, exist_ok=True)
+            
+            default_filename = f"{self.current_symbol.replace('/', '_')}_{self.timeframe_combo.currentText()}_selection.json"
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, "Save Selected Data as JSON", 
+                os.path.join(default_dir, default_filename),
+                "JSON Files (*.json)"
+            )
+            
+            if filepath:
+                # Преобразуем DataFrame в формат JSON
+                json_data = {
+                    "metadata": {
+                        "symbol": self.current_symbol,
+                        "timeframe": self.timeframe_combo.currentText(),
+                        "selection_start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
+                        "selection_end": end_date.strftime('%Y-%m-%d %H:%M:%S'),
+                        "export_time": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "export_type": "selected_range",
+                        "points_count": len(selected_data)
+                    },
+                    "data": selected_data.to_dict(orient='records')
+                }
+                
+                # Сохраняем в файл
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(json_data, f, ensure_ascii=False, indent=4, default=str)
+                
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage(f"Selected data ({len(selected_data)} points) saved to {filepath}", 5000)
+                print(f"DEBUG: Выбранные данные ({len(selected_data)} точек) сохранены в {filepath}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save selected data: {str(e)}")
+            print(f"DEBUG: Ошибка при сохранении выбранных данных: {e}")
+
+    def export_data(self):
+        """Exports data according to settings from Settings tab"""
+        # This method is now obsolete and replaced by save_data_json and save_selected_data
+        self.save_data_json()

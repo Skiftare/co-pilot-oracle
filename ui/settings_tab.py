@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QCheckBox, QGroupBox, QLineEdit,
                              QRadioButton, QSpinBox, QFormLayout, QComboBox,
-                             QTabWidget, QSlider, QColorDialog, QFrame)
+                             QTabWidget, QSlider, QColorDialog, QFrame,
+                             QScrollArea, QSizePolicy)
 from PyQt5.QtCore import Qt, QSize
 from PyQt5.QtGui import QIcon, QColor
 
@@ -38,6 +39,7 @@ class ColorSelector(QFrame):
 class SettingsTab(QWidget):
     def __init__(self, main_window):
         super().__init__()
+        self.setObjectName("settingsTab")  # Add this for easier reference
         self.main_window = main_window
         self.init_ui()
 
@@ -72,10 +74,12 @@ class SettingsTab(QWidget):
         self.reset_btn = QPushButton("Reset to Defaults")
         self.reset_btn.setObjectName("secondaryButton")
         self.reset_btn.setIcon(QIcon("resources/icons/reset.png"))
+        self.reset_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.save_btn = QPushButton("Save Settings")
         self.save_btn.setObjectName("primaryButton")
         self.save_btn.setIcon(QIcon("resources/icons/save.png"))
+        self.save_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         buttons_layout.addWidget(self.reset_btn)
         buttons_layout.addWidget(self.save_btn)
@@ -84,13 +88,21 @@ class SettingsTab(QWidget):
         layout.addLayout(buttons_layout)
 
     def create_api_settings(self):
+        # Создаем прокручиваемую область
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
 
         # Группа общих настроек API
         general_group = QGroupBox("General API Settings")
         general_group.setObjectName("settingsGroup")
         general_layout = QFormLayout(general_group)
+        general_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Выбор API источника
         api_source = QComboBox()
@@ -126,9 +138,9 @@ class SettingsTab(QWidget):
         keys_group = QGroupBox("API Keys")
         keys_group.setObjectName("settingsGroup")
         keys_layout = QFormLayout(keys_group)
+        keys_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
-        # Удаляем поля для Binance API
-        # Заменяем секцию с ключами только на KuCoin
+        # KuCoin API ключи
         kucoin_key = QLineEdit()
         kucoin_key.setPlaceholderText("Введите ваш KuCoin API ключ")
         kucoin_key.setObjectName("styledLineEdit")
@@ -149,19 +161,65 @@ class SettingsTab(QWidget):
         # Добавляем группу настроек ключей
         layout.addWidget(keys_group)
 
+        # Группа настроек кэша
+        cache_group = QGroupBox("Cache Settings")
+        cache_group.setObjectName("settingsGroup")
+        cache_layout = QFormLayout(cache_group)
+        cache_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+
+        # Включение/выключение кэша
+        enable_cache = QCheckBox("Enabled")
+        enable_cache.setChecked(True)
+        cache_layout.addRow(QLabel("Use Local Cache:"), enable_cache)
+
+        # Максимальный размер кэша
+        cache_size = QSpinBox()
+        cache_size.setRange(10, 1000)
+        cache_size.setValue(100)
+        cache_size.setSuffix(" MB")
+        cache_size.setObjectName("styledSpinBox")
+        cache_layout.addRow(QLabel("Maximum Cache Size:"), cache_size)
+
+        # Время жизни кэша
+        cache_ttl = QSpinBox()
+        cache_ttl.setRange(1, 30)
+        cache_ttl.setValue(1)
+        cache_ttl.setSuffix(" day(s)")
+        cache_ttl.setObjectName("styledSpinBox")
+        cache_layout.addRow(QLabel("Cache Lifetime:"), cache_ttl)
+
+        # Кнопка очистки кэша
+        clear_cache_btn = QPushButton("Clear Cache Now")
+        clear_cache_btn.setObjectName("secondaryButton")
+        clear_cache_btn.clicked.connect(self.clear_cache)
+        cache_layout.addRow("", clear_cache_btn)
+
+        # Добавляем группу настроек кэша
+        layout.addWidget(cache_group)
+
         # Добавляем растягивающийся элемент внизу
         layout.addStretch()
-
-        return widget
+        
+        # Устанавливаем виджет в область прокрутки
+        scroll.setWidget(widget)
+        return scroll
 
     def create_display_settings(self):
+        # Создаем прокручиваемую область
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
 
         # Группа настроек графиков
         chart_group = QGroupBox("Chart Settings")
         chart_group.setObjectName("settingsGroup")
         chart_layout = QFormLayout(chart_group)
+        chart_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Настройка темы
         theme_combo = QComboBox()
@@ -201,10 +259,11 @@ class SettingsTab(QWidget):
         # Добавляем группу настроек графиков
         layout.addWidget(chart_group)
 
-        # Группа настроек цветов
+        # Группа настроек цветов с адаптивным макетом
         color_group = QGroupBox("Color Settings")
         color_group.setObjectName("settingsGroup")
         color_layout = QFormLayout(color_group)
+        color_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Цвет свечей роста
         bullish_color = ColorSelector("#4CAF50")
@@ -231,17 +290,27 @@ class SettingsTab(QWidget):
 
         # Добавляем растягивающийся элемент внизу
         layout.addStretch()
-
-        return widget
+        
+        # Устанавливаем виджет в область прокрутки
+        scroll.setWidget(widget)
+        return scroll
 
     def create_export_settings(self):
+        # Создаем прокручиваемую область
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
 
         # Группа настроек экспорта файлов
         file_group = QGroupBox("File Export Settings")
         file_group.setObjectName("settingsGroup")
         file_layout = QFormLayout(file_group)
+        file_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Формат файла по умолчанию
         file_format = QComboBox()
@@ -254,57 +323,100 @@ class SettingsTab(QWidget):
         default_path.setText("~/crypto_data")
         default_path.setObjectName("styledLineEdit")
         file_layout.addRow(QLabel("Default Export Path:"), default_path)
+        
+        # Опция сохранения только на локальной машине
+        self.save_locally = QCheckBox("Save on local machine only")
+        self.save_locally.setChecked(True)
+        self.save_locally.stateChanged.connect(self.toggle_remote_settings)
+        file_layout.addRow("", self.save_locally)
 
         # Добавляем группу настроек файлов
         layout.addWidget(file_group)
 
         # Группа настроек удаленного сервера
-        remote_group = QGroupBox("Remote Server Settings")
-        remote_group.setObjectName("settingsGroup")
-        remote_layout = QFormLayout(remote_group)
+        self.remote_group = QGroupBox("Remote Server Settings")
+        self.remote_group.setObjectName("settingsGroup")
+        remote_layout = QFormLayout(self.remote_group)
+        remote_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
         # Настройки хоста
-        host = QLineEdit()
-        host.setText("127.0.0.1")
-        host.setObjectName("styledLineEdit")
-        remote_layout.addRow(QLabel("Default Remote Host:"), host)
+        self.host = QLineEdit()
+        self.host.setText("127.0.0.1")
+        self.host.setObjectName("styledLineEdit")
+        remote_layout.addRow(QLabel("Default Remote Host:"), self.host)
 
         # Настройки порта
-        port = QSpinBox()
-        port.setRange(1, 65535)
-        port.setValue(8000)
-        port.setObjectName("styledSpinBox")
-        remote_layout.addRow(QLabel("Default Remote Port:"), port)
+        self.port = QSpinBox()
+        self.port.setRange(1, 65535)
+        self.port.setValue(8000)
+        self.port.setObjectName("styledSpinBox")
+        remote_layout.addRow(QLabel("Default Remote Port:"), self.port)
 
-        # Протокол передачи
-        protocol_layout = QHBoxLayout()
-        http_radio = QRadioButton("HTTP")
-        tcp_radio = QRadioButton("TCP")
-        http_radio.setChecked(True)
-        http_radio.setObjectName("styledRadio")
-        tcp_radio.setObjectName("styledRadio")
+        # Протокол передачи - адаптивный layout
+        protocol_widget = QWidget()
+        protocol_layout = QHBoxLayout(protocol_widget)
+        protocol_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.http_radio = QRadioButton("HTTP")
+        self.tcp_radio = QRadioButton("TCP")
+        self.http_radio.setChecked(True)
+        self.http_radio.setObjectName("styledRadio")
+        self.tcp_radio.setObjectName("styledRadio")
 
-        protocol_layout.addWidget(http_radio)
-        protocol_layout.addWidget(tcp_radio)
+        protocol_layout.addWidget(self.http_radio)
+        protocol_layout.addWidget(self.tcp_radio)
         protocol_layout.addStretch()
 
-        remote_layout.addRow(QLabel("Transport Protocol:"), protocol_layout)
+        remote_layout.addRow(QLabel("Transport Protocol:"), protocol_widget)
 
         # Безопасное соединение
-        secure = QCheckBox("Enable SSL/TLS")
-        secure.setChecked(True)
-        remote_layout.addRow(QLabel("Secure Connection:"), secure)
+        self.secure = QCheckBox("Enable SSL/TLS")
+        self.secure.setChecked(True)
+        remote_layout.addRow(QLabel("Secure Connection:"), self.secure)
 
         # Путь к API на удаленном сервере
-        api_path = QLineEdit()
-        api_path.setText("/api/v1/crypto/data")
-        api_path.setObjectName("styledLineEdit")
-        remote_layout.addRow(QLabel("API Endpoint Path:"), api_path)
+        self.api_path = QLineEdit()
+        self.api_path.setText("/api/v1/crypto/data")
+        self.api_path.setObjectName("styledLineEdit")
+        remote_layout.addRow(QLabel("API Endpoint Path:"), self.api_path)
 
         # Добавляем группу настроек удаленного сервера
-        layout.addWidget(remote_group)
+        layout.addWidget(self.remote_group)
+        
+        # Инициализируем состояние удаленных настроек в соответствии с чекбоксом
+        self.toggle_remote_settings(self.save_locally.isChecked())
 
         # Добавляем растягивающийся элемент внизу
         layout.addStretch()
+        
+        # Устанавливаем виджет в область прокрутки
+        scroll.setWidget(widget)
+        return scroll
+        
+    def toggle_remote_settings(self, checked):
+        """Включает/выключает настройки удаленного сервера в зависимости от флажка локального сохранения"""
+        self.remote_group.setEnabled(not checked)
+        
+        # Дополнительно можно изменить внешний вид для лучшей обратной связи
+        if checked:
+            self.remote_group.setStyleSheet("color: gray;")
+        else:
+            self.remote_group.setStyleSheet("")
 
-        return widget
+    def clear_cache(self):
+        """Очищает кэш API через api_client"""
+        try:
+            # Получаем api_client из главного окна
+            api_client = self.main_window.api_client
+            
+            # Очищаем кэш
+            count = api_client.clear_cache()
+            
+            # Показываем сообщение об успехе
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Cache Cleared", 
+                                   f"Successfully cleared {count} cache entries.")
+            
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Error", f"Failed to clear cache: {str(e)}")

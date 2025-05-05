@@ -1,33 +1,31 @@
+import os
 import sys
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QIcon, QFontDatabase
-from PyQt5.QtCore import QFile, QTextStream
-
+from PyQt5.QtCore import QDir
 from ui.main_window import MainWindow
 
+# Force X11 backend instead of Wayland
+os.environ["QT_QPA_PLATFORM"] = "xcb"
 
-def load_stylesheet(file_path):
-    """Загружает таблицу стилей из файла"""
-    stylesheet = ""
-    style_file = QFile(file_path)
-    if style_file.open(QFile.ReadOnly | QFile.Text):
-        stream = QTextStream(style_file)
-        stylesheet = stream.readAll()
-    return stylesheet
+
+def main():
+    # Create the application
+    app = QApplication(sys.argv)
+
+    # Set up stylesheet (with error handling)
+    try:
+        style_file = QDir.current().filePath("resources/styles/light_aero_theme.qss")
+        with open(style_file, "r") as f:
+            app.setStyleSheet(f.read())
+    except Exception as e:
+        print(f"Error loading stylesheet: {e}")
+
+    # Create and show the main window
+    window = MainWindow()
+    window.show()
+
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setApplicationName("KuCoin Viewer")
-    app.setWindowIcon(QIcon("resources/icons/app_icon.png"))
-
-    # Загружаем шрифты
-    QFontDatabase.addApplicationFont("resources/fonts/Roboto-Regular.ttf")
-    QFontDatabase.addApplicationFont("resources/fonts/Roboto-Bold.ttf")
-
-    # Устанавливаем стили
-    app.setStyleSheet(load_stylesheet("resources/styles/light_aero_theme.qss"))
-
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
+    main()

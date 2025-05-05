@@ -247,16 +247,8 @@ QStatusBar {
     border-top: 1px solid #B0C4DE;
 }
 
-/* Полосы прокрутки */
-QScrollBar:vertical {
-    border: none;
-    background: #F0F8FF;
-    width: 12px;
-    margin: 12px 0 12px 0;
-}
-
 QScrollBar::handle:vertical {
     background: #B0C4DE;
     min-height: 20px;
     border-radius: 6px;
-}stylesheet("resources/styles/light_aero_theme.qss"))
+}

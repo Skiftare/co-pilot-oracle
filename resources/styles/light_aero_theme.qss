@@ -1,0 +1,262 @@
+/* Основные цвета - светло-голубая тема в стиле Windows Aero */
+QMainWindow, QDialog {
+    background-color: #F0F8FF;
+    color: #202020;
+}
+
+QWidget {
+    color: #202020;
+    font-family: 'Segoe UI', 'Roboto';
+    font-size: 10pt;
+}
+
+/* Заголовок */
+#headerFrame {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #E5F0FF, stop:1 #C0D9F0);
+    border-bottom: 1px solid #A0C0E0;
+    min-height: 50px;
+    padding: 5px;
+}
+
+#titleLabel {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #0064C8;
+}
+
+#apiStatus {
+    font-size: 10pt;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background-color: rgba(76, 175, 80, 0.2);
+}
+
+#apiStatus[status="error"] {
+    background-color: rgba(244, 67, 54, 0.2);
+}
+
+/* Вкладки */
+QTabWidget::pane {
+    border: 1px solid #B0C4DE;
+    background-color: #F0F8FF;
+    border-radius: 5px;
+}
+
+QTabBar::tab {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #E5F0FF, stop:1 #C0D9F0);
+    color: #0064C8;
+    border: 1px solid #B0C4DE;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    padding: 6px 12px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #FFFFFF, stop:1 #E5F0FF);
+    color: #0064C8;
+    border-bottom-color: #F0F8FF;
+}
+
+QTabBar::tab:hover:!selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F0F8FF, stop:1 #D0E5FF);
+}
+
+/* Карточки статуса */
+#statusCard {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #FFFFFF, stop:1 #EFF5FF);
+    border-radius: 8px;
+    border: 1px solid #B0C4DE;
+}
+
+#statusCard[cardColor="success"] {
+    border-left: 5px solid #4CAF50;
+}
+
+#statusCard[cardColor="danger"] {
+    border-left: 5px solid #F44336;
+}
+
+#statusCard[cardColor="warning"] {
+    border-left: 5px solid #FFC107;
+}
+
+#cardTitle {
+    font-size: 10pt;
+    color: #5F5F5F;
+}
+
+#cardValue {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #0064C8;
+}
+
+#cardSubtitle {
+    font-size: 9pt;
+    color: #6F6F6F;
+}
+
+/* Кнопки */
+QPushButton {
+    border: 1px solid #B0C4DE;
+    border-radius: 5px;
+    padding: 6px 12px;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #FFFFFF, stop:1 #E5F0FF);
+    color: #0064C8;
+}
+
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F0F8FF, stop:1 #D0E5FF);
+}
+
+QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #D0E5FF, stop:1 #B0D0F0);
+}
+
+#primaryButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #2196F3, stop:1 #1976D2);
+    border: 1px solid #1565C0;
+    color: white;
+}
+
+#primaryButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #42A5F5, stop:1 #1E88E5);
+}
+
+#primaryButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #0D47A1, stop:1 #1565C0);
+}
+
+#secondaryButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #78909C, stop:1 #455A64);
+    border: 1px solid #37474F;
+    color: white;
+}
+
+#dangerButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F44336, stop:1 #D32F2F);
+    border: 1px solid #B71C1C;
+    color: white;
+}
+
+#dangerButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #EF5350, stop:1 #E53935);
+}
+
+/* Таблицы */
+QTableView {
+    background-color: #FFFFFF;
+    alternate-background-color: #F5F9FF;
+    border: 1px solid #B0C4DE;
+    gridline-color: #E0E8F0;
+    selection-background-color: #B0D0F0;
+    selection-color: #000000;
+}
+
+QTableView::item:selected {
+    background-color: #B0D0F0;
+    color: #000000;
+}
+
+QHeaderView::section {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                              stop:0 #F0F8FF, stop:1 #D0E5FF);
+    border: 1px solid #B0C4DE;
+    padding: 4px;
+    color: #0064C8;
+}
+
+/* Поля ввода */
+QLineEdit, QDateEdit, QSpinBox, QComboBox {
+    padding: 4px 8px;
+    border: 1px solid #B0C4DE;
+    border-radius: 4px;
+    background-color: #FFFFFF;
+    selection-background-color: #B0D0F0;
+    selection-color: #000000;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left: 1px solid #B0C4DE;
+}
+
+QComboBox::down-arrow {
+    image: url(resources/icons/arrow_down.png);
+}
+
+/* График и контейнеры */
+#chartContainer {
+    background-color: #FFFFFF;
+    border: 1px solid #B0C4DE;
+    border-radius: 4px;
+}
+
+/* Прогресс-бар */
+QProgressBar {
+    border: 1px solid #B0C4DE;
+    border-radius: 4px;
+    text-align: center;
+    background-color: #F0F8FF;
+}
+
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                              stop:0 #2196F3, stop:1 #42A5F5);
+    border-radius: 3px;
+}
+
+/* Группы */
+QGroupBox {
+    border: 1px solid #B0C4DE;
+    border-radius: 4px;
+    margin-top: 12px;
+    background-color: rgba(240, 248, 255, 0.5);
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 5px;
+    color: #0064C8;
+}
+
+/* Статус-бар */
+QStatusBar {
+    background-color: #E5F0FF;
+    color: #0064C8;
+    border-top: 1px solid #B0C4DE;
+}
+
+/* Полосы прокрутки */
+QScrollBar:vertical {
+    border: none;
+    background: #F0F8FF;
+    width: 12px;
+    margin: 12px 0 12px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #B0C4DE;
+    min-height: 20px;
+    border-radius: 6px;
+}stylesheet("resources/styles/light_aero_theme.qss"))

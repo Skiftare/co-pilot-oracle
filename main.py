@@ -26,7 +26,7 @@ if __name__ == "__main__":
     QFontDatabase.addApplicationFont("resources/fonts/Roboto-Bold.ttf")
 
     # Устанавливаем стили
-    app.setStyleSheet(load_stylesheet("resources/styles/dark_theme.qss"))
+    app.setStyleSheet(load_stylesheet("resources/styles/light_aero_theme.qss"))
 
     window = MainWindow()
     window.show()

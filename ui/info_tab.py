@@ -60,6 +60,8 @@ class PairSelector(QFrame):
         # Подключаем события
         self.pair_input.returnPressed.connect(self.on_pair_entered)
 
+
+
     def load_pairs(self):
         """Загружает список пар с биржи"""
         # Запустим асинхронную загрузку
@@ -356,16 +358,39 @@ class InfoTab(QWidget):
         self.load_btn.setText("Loading...")
         self.load_btn.setEnabled(False)
 
-        # Показываем загрузочное сообщение
+        # Детальное логирование
+        print(f"DEBUG: Загружаем {symbol} с таймфреймом {timeframe} с {since}")
+
+        if hasattr(self.parent(), "statusBar"):
+            self.parent().statusBar().showMessage(f"Загрузка {symbol}, таймфрейм: {timeframe}")
+
+        # Показываем загрузочное сообщение с деталями
         loading_fig = go.Figure()
-        loading_fig.add_annotation(text="Loading data... Please wait",
-                                   xref="paper", yref="paper",
-                                   x=0.5, y=0.5, showarrow=False,
-                                   font=dict(size=20, color="#4CAF50"))
+        loading_fig.add_annotation(
+            text=f"Загрузка данных для {symbol}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.6, showarrow=False,
+            font=dict(size=20, color="#4CAF50")
+        )
+
+        loading_fig.add_annotation(
+            text=f"Таймфрейм: {timeframe}, с даты: {since.strftime('%d.%m.%Y')}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="#FFFFFF")
+        )
+
+        loading_fig.add_annotation(
+            text="Пожалуйста, подождите...",
+            xref="paper", yref="paper",
+            x=0.5, y=0.4, showarrow=False,
+            font=dict(size=14, color="#AAAAAA")
+        )
+
         loading_fig.update_layout(
             template="plotly_dark",
-            paper_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
-            plot_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
+            paper_bgcolor='rgba(25, 25, 35, 1)',
+            plot_bgcolor='rgba(25, 25, 35, 1)',
             margin=dict(l=10, r=10, t=50, b=10),
         )
 
@@ -375,40 +400,94 @@ class InfoTab(QWidget):
         # Добавляем запрос в очередь
         task_id = self.request_queue.add_request(
             task_type="fetch_ohlcv",
-            exchange="kucoin",  # Добавляем параметр exchange
+            exchange="kucoin",  # Только KuCoin
             symbol=symbol,
             timeframe=timeframe,
             since=since,
             callback=self.update_chart
         )
+        print(f"DEBUG: Запрос добавлен в очередь, ID задачи: {task_id}")
+
+    def fetch_top_pairs(self, limit=12):
+        """Получает топ-12 пар с USDT по объему"""
+        # Получаем все доступные пары с USDT
+        markets_df = self.request_queue.add_request(
+            task_type="fetch_markets",
+            callback=None  # Синхронный запрос
+        )
+
+        if markets_df is None or markets_df.empty:
+            # Возвращаем стандартный список популярных пар
+            print("DEBUG: Не удалось получить список рынков, используем стандартный список")
+            return ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XRP/USDT', 'DOGE/USDT',
+                    'ADA/USDT', 'SHIB/USDT', 'TRX/USDT', 'DOT/USDT',
+                    'AVAX/USDT', 'MATIC/USDT', 'LTC/USDT']
+
+        # Фильтруем только USDT пары
+        usdt_markets = markets_df[markets_df['quote'] == 'USDT']
+
+        # Получаем и сортируем по объему
+        try:
+            # Выбираем топ-12 самых популярных по минимальному объему
+            top_pairs = usdt_markets.sort_values('minAmount', ascending=True).head(limit)['symbol'].tolist()
+            print(f"DEBUG: Получено {len(top_pairs)} популярных пар")
+            return top_pairs
+        except Exception as e:
+            print(f"DEBUG: Ошибка при сортировке пар: {e}")
+            # Возвращаем статический список в случае ошибки
+            return ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XRP/USDT', 'DOGE/USDT',
+                    'ADA/USDT', 'SHIB/USDT', 'TRX/USDT', 'DOT/USDT',
+                    'AVAX/USDT', 'MATIC/USDT', 'LTC/USDT']
+
     def update_chart(self, data, error=None):
         # Восстанавливаем кнопку
         self.load_btn.setText("Load Data")
         self.load_btn.setEnabled(True)
 
+        if hasattr(self.parent(), "statusBar"):
+            self.parent().statusBar().clearMessage()
+
         if error:
+            error_message = f"Ошибка: {error}"
+            print(f"DEBUG: Ошибка при обновлении графика: {error}")
+
             error_fig = go.Figure()
-            error_fig.add_annotation(text=f"Error: {error}",
-                                     xref="paper", yref="paper",
-                                     x=0.5, y=0.5, showarrow=False,
-                                     font=dict(size=16, color="#F44336"))
+            error_fig.add_annotation(
+                text=error_message,
+                xref="paper", yref="paper",
+                x=0.5, y=0.55, showarrow=False,
+                font=dict(size=18, color="#F44336")
+            )
+
+            error_fig.add_annotation(
+                text="Попробуйте изменить параметры и повторить запрос",
+                xref="paper", yref="paper",
+                x=0.5, y=0.45, showarrow=False,
+                font=dict(size=14, color="#FFFFFF")
+            )
+
             error_fig.update_layout(
                 template="plotly_dark",
-                paper_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
-                plot_bgcolor='rgba(25, 25, 35, 1)',  # Более темный фон
+                paper_bgcolor='rgba(25, 25, 35, 1)',
+                plot_bgcolor='rgba(25, 25, 35, 1)',
                 margin=dict(l=10, r=10, t=50, b=10),
             )
 
             html = plot(error_fig, output_type='div', include_plotlyjs='cdn')
             self.browser.setHtml(html)
+
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(f"Ошибка: {error}", 5000)
+
             return
 
         # Сохраняем данные
         self.data = data
+        print(f"DEBUG: Данные успешно получены, количество записей: {len(data)}")
+        print(f"DEBUG: Диапазон данных: с {data['timestamp'].min()} по {data['timestamp'].max()}")
 
         # Обновляем график с данными и индикаторами
         self.update_indicators()
-
     def update_indicators(self):
         if self.data is None:
             return

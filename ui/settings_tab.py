@@ -94,7 +94,8 @@ class SettingsTab(QWidget):
 
         # Выбор API источника
         api_source = QComboBox()
-        api_source.addItems(["ccxt", "CoinAPI", "CryptoCompare", "Custom API"])
+        api_source.addItems(["KuCoin (ccxt)", "CryptoCompare", "Custom API"])
+        api_source.setCurrentText("KuCoin (ccxt)")
         api_source.setObjectName("styledComboBox")
         general_layout.addRow(QLabel("API Source:"), api_source)
 
@@ -126,29 +127,24 @@ class SettingsTab(QWidget):
         keys_group.setObjectName("settingsGroup")
         keys_layout = QFormLayout(keys_group)
 
-        # Binance API ключи
-        binance_key = QLineEdit()
-        binance_key.setPlaceholderText("Enter your Binance API key")
-        binance_key.setObjectName("styledLineEdit")
-        keys_layout.addRow(QLabel("Binance API Key:"), binance_key)
+        # Удаляем поля для Binance API
+        # Заменяем секцию с ключами только на KuCoin
+        kucoin_key = QLineEdit()
+        kucoin_key.setPlaceholderText("Введите ваш KuCoin API ключ")
+        kucoin_key.setObjectName("styledLineEdit")
+        keys_layout.addRow(QLabel("KuCoin API Key:"), kucoin_key)
 
-        binance_secret = QLineEdit()
-        binance_secret.setPlaceholderText("Enter your Binance API secret")
-        binance_secret.setObjectName("styledLineEdit")
-        binance_secret.setEchoMode(QLineEdit.Password)
-        keys_layout.addRow(QLabel("Binance API Secret:"), binance_secret)
+        kucoin_secret = QLineEdit()
+        kucoin_secret.setPlaceholderText("Введите ваш KuCoin API секрет")
+        kucoin_secret.setObjectName("styledLineEdit")
+        kucoin_secret.setEchoMode(QLineEdit.Password)
+        keys_layout.addRow(QLabel("KuCoin API Secret:"), kucoin_secret)
 
-        # Coinbase API ключи
-        coinbase_key = QLineEdit()
-        coinbase_key.setPlaceholderText("Enter your Coinbase API key")
-        coinbase_key.setObjectName("styledLineEdit")
-        keys_layout.addRow(QLabel("Coinbase API Key:"), coinbase_key)
-
-        coinbase_secret = QLineEdit()
-        coinbase_secret.setPlaceholderText("Enter your Coinbase API secret")
-        coinbase_secret.setObjectName("styledLineEdit")
-        coinbase_secret.setEchoMode(QLineEdit.Password)
-        keys_layout.addRow(QLabel("Coinbase API Secret:"), coinbase_secret)
+        kucoin_passphrase = QLineEdit()
+        kucoin_passphrase.setPlaceholderText("Введите вашу KuCoin API passphrase")
+        kucoin_passphrase.setObjectName("styledLineEdit")
+        kucoin_passphrase.setEchoMode(QLineEdit.Password)
+        keys_layout.addRow(QLabel("KuCoin API Passphrase:"), kucoin_passphrase)
 
         # Добавляем группу настроек ключей
         layout.addWidget(keys_group)

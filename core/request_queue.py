@@ -47,6 +47,7 @@ class RequestQueue(QObject):
             'created_at': time.time(),
             'exchange': exchange  # Добавляем поле exchange
         }
+        print(f"Добавляем задачу {task_id} в очередь: {task}")
 
         # Добавляем в очередь с приоритетом (меньшее число = высший приоритет)
         self.task_queue.put((priority, task))
@@ -69,12 +70,14 @@ class RequestQueue(QObject):
             try:
                 # Пытаемся получить задачу из очереди с таймаутом
                 priority, task = self.task_queue.get(timeout=0.5)
+                print(f"Обрабатываем задачу {task['id']} с приоритетом {priority}: {task}")
 
                 # Проверяем ограничения по запросам
                 if self.api_client.is_rate_limited():
                     # Если биржа в режиме ограничения, возвращаем задачу обратно в очередь
                     reset_time = self.api_client.get_reset_time()
                     task['status'] = 'rate_limited'
+                    print(f"Задача {task['id']} возвращена в очередь из-за ограничения запросов. Время сброса: {reset_time}")
                     self.task_queue.put((priority, task))
                     self._notify_queue_status()
                     time.sleep(1)  # Небольшая задержка перед следующей попыткой
@@ -83,9 +86,10 @@ class RequestQueue(QObject):
                 # Обновляем статус и запускаем запрос
                 task['status'] = 'in_progress'
                 self._notify_queue_status()
-
+                print(f"Запускаем задачу {task['id']}... и task_type: {task['task_type']}")
                 # Запускаем API запрос в отдельном потоке на основе типа задачи
                 if task['task_type'] == 'fetch_ohlcv':
+                    
                     task_thread = threading.Thread(
                         target=self.api_client.fetch_ohlcv,
                         args=(task['id'], task['symbol'], task['timeframe'], task['since'])

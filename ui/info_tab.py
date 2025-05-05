@@ -467,7 +467,7 @@ class InfoTab(QWidget):
             )
 
             error_fig.update_layout(
-                template="plotly_dark",
+                template="plotly_light",
                 paper_bgcolor='rgba(25, 25, 35, 1)',
                 plot_bgcolor='rgba(25, 25, 35, 1)',
                 margin=dict(l=10, r=10, t=50, b=10),
@@ -487,7 +487,18 @@ class InfoTab(QWidget):
         print(f"DEBUG: Диапазон данных: с {data['timestamp'].min()} по {data['timestamp'].max()}")
 
         # Обновляем график с данными и индикаторами
-        self.update_indicators()
+        fig = make_subplots(rows=1, cols=1, shared_xaxes=True)
+        fig.add_trace(go.Candlestick(
+            x=data['timestamp'],
+            open=data['open'],
+            high=data['high'],
+            low=data['low'],
+            close=data['close'],
+            name="OHLC"
+        ))
+        fig.update_layout(title=f"{self.current_symbol} Price Chart")
+        html = plot(fig, output_type='div', include_plotlyjs='cdn')
+        self.browser.setHtml(html)
     def update_indicators(self):
         if self.data is None:
             return

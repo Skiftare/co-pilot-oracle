@@ -1,6 +1,6 @@
 import ccxt
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 import time
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -25,26 +25,32 @@ class ApiClient(QObject):
 
     def fetch_ohlcv(self, task_id, symbol, timeframe, since):
         """Получает OHLCV данные для KuCoin с обработкой rate limits"""
+        print(f"Запрос OHLCV для {symbol} с таймфреймом {timeframe} с {since}")
         try:
             # Преобразуем дату в timestamp
             if isinstance(since, datetime):
                 since_timestamp = int(since.timestamp() * 1000)
+            elif isinstance(since, date):
+                since_datetime = datetime.combine(since, datetime.min.time())
+                since_timestamp = int(since_datetime.timestamp() * 1000)
             else:
                 since_timestamp = int(since * 1000)
 
             # Попытка получить данные
             try:
+                print(f"Отправляем запрос на KuCoin для {symbol} с таймфреймом {timeframe} с {since}")
                 ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since_timestamp)
 
                 # Преобразуем в DataFrame
                 df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                 df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-
+                print(f"Получены данные для {symbol}: {df.head()}")
                 # Сигнал об успешном завершении
                 self.request_complete.emit(task_id, df, "")
                 return df
 
             except ccxt.RateLimitExceeded as e:
+                print(f"Rate limit exceeded for {symbol}: {e}")
                 # Обрабатываем ограничение запросов
                 reset_time = self.extract_reset_time(e)
                 self.rate_limits['kucoin'] = {
@@ -61,6 +67,7 @@ class ApiClient(QObject):
                 return None
 
         except Exception as e:
+            print(f"Error fetching OHLCV data for {symbol}: {e}")
             # Любые другие ошибки
             self.request_complete.emit(task_id, None, str(e))
             return None

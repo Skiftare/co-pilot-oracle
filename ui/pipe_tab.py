@@ -286,7 +286,7 @@ class PipeTab(QWidget):
 
             bg_color = status_color.get(task['status'].lower(), "transparent")
             for col in range(6):
-                self.table.item(row, col).setBackground(QColor(bg_color))
+                self.table.item(row, col).setBackground(QColor('white'))
 
                 # Дополнительное форматирование для статуса
                 if col == 1:

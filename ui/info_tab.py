@@ -3,8 +3,9 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
                              QFrame, QToolButton, QSizePolicy, QSplitter,
                              QLineEdit, QCompleter, QAction, QMenu, QApplication,
                              QScrollArea, QMessageBox, QFileDialog)
-from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel
-from PyQt5.QtGui import QIcon, QCursor
+from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel, QPropertyAnimation, QRect, QEasingCurve, \
+    QTimer
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -987,86 +988,289 @@ class InfoTab(QWidget):
         html = plot(fig, output_type='div', include_plotlyjs='cdn', config={'responsive': True})
         self.browser.setHtml(html)
 
+        # Устанавливаем фокус на график
+
     def save_data_json(self):
-        """Сохраняет все текущие данные в JSON файл"""
+        """Saves all current data to a JSON file"""
         if self.data is None or self.data.empty:
             QMessageBox.warning(self, "No Data", "There is no data to save.")
             return
 
-        # Получаем путь для сохранения
+        # Get path for saving with improved filename
         default_dir = os.path.expanduser("~/crypto_data")
         os.makedirs(default_dir, exist_ok=True)
-        
-        default_filename = f"{self.current_symbol.replace('/', '_')}_{self.timeframe_combo.currentText()}_{self.date_edit.date().toString('yyyy-MM-dd')}.json"
+
+        default_filename = self._generate_filename(is_selected=False)
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Full Data as JSON", 
+            self,
+            "Save Data",
             os.path.join(default_dir, default_filename),
             "JSON Files (*.json)"
         )
-        
+
         if filepath:
             try:
-                # Преобразуем DataFrame в формат JSON
-                json_data = {
-                    "metadata": {
-                        "symbol": self.current_symbol,
-                        "timeframe": self.timeframe_combo.currentText(),
-                        "from_date": self.date_edit.date().toString('yyyy-MM-dd'),
-                        "export_time": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "export_type": "full_dataset"
-                    },
-                    "data": self.data.to_dict(orient='records')
+                # Create metadata
+                metadata = {
+                    'symbol': self.current_symbol,
+                    'timeframe': self.timeframe_combo.currentText(),
+                    'start_date': self.data.index.min().strftime('%Y-%m-%d %H:%M:%S'),
+                    'end_date': self.data.index.max().strftime('%Y-%m-%d %H:%M:%S'),
+                    'exported_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'candle_count': len(self.data)
                 }
-                
-                # Сохраняем в файл
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    json.dump(json_data, f, ensure_ascii=False, indent=4, default=str)  # default=str для обработки Timestamp
-                
-                if hasattr(self.parent(), "statusBar"):
-                    self.parent().statusBar().showMessage(f"Full data saved to {filepath}", 5000)
-                print(f"DEBUG: Данные сохранены в {filepath}")
-            except Exception as e:
-                QMessageBox.critical(self, "Save Error", f"Failed to save data: {str(e)}")
-                print(f"DEBUG: Ошибка при сохранении данных: {e}")
 
+                # Prepare export data
+                export_data = {
+                    'metadata': metadata,
+                    'data': self.data.reset_index().to_dict('records')
+                }
+
+                # Save to file
+                with open(filepath, 'w') as f:
+                    json.dump(export_data, f, indent=2)
+
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage(f"Data saved to {filepath}")
+
+                # Check if server upload is needed
+                self._send_to_server_if_needed(filepath, export_data)
+
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save data: {str(e)}")
     def save_selected_data(self):
-        """Сохраняет только выбранный/видимый на графике диапазон данных"""
+        """Saves only the selected/visible chart data range without confirmation"""
         if self.data is None or self.data.empty:
             QMessageBox.warning(self, "No Data", "There is no data to save.")
             return
-            
-        # Улучшенный JavaScript для извлечения выбранного диапазона из Plotly
+
+        # Fix: Wrap the JS in an anonymous function to make the return statement valid
         script = """
-        var rangeData = {};
-        try {
-            // Находим элемент графика Plotly
-            var plotlyDiv = document.querySelector('.js-plotly-plot');
-            if (plotlyDiv && plotlyDiv._fullLayout) {
-                // Проверяем, есть ли у графика данные о выбранном диапазоне
-                if (plotlyDiv._fullLayout.xaxis && plotlyDiv._fullLayout.xaxis.range) {
-                    rangeData.xRange = plotlyDiv._fullLayout.xaxis.range;
-                    rangeData.success = true;
+        (function() {
+            var rangeData = {};
+            try {
+                // Находим элемент графика Plotly
+                var plotlyDiv = document.querySelector('.js-plotly-plot');
+                if (plotlyDiv && plotlyDiv._fullLayout) {
+                    // Проверяем, есть ли у графика данные о выбранном диапазоне
+                    if (plotlyDiv._fullLayout.xaxis && plotlyDiv._fullLayout.xaxis.range) {
+                        rangeData.xRange = plotlyDiv._fullLayout.xaxis.range;
+                        rangeData.success = true;
+                    } else {
+                        // Если диапазон не выбран, используем весь видимый диапазон
+                        rangeData.xRange = plotlyDiv._fullLayout.xaxis._range;
+                        rangeData.success = true;
+                    }
                 } else {
-                    // Если диапазон не выбран, используем весь видимый диапазон
-                    rangeData.xRange = [
-                        plotlyDiv._fullData[0].x[0],
-                        plotlyDiv._fullData[0].x[plotlyDiv._fullData[0].x.length - 1]
-                    ];
-                    rangeData.success = true;
+                    rangeData.success = false;
+                    rangeData.error = "Cannot find Plotly graph or layout";
                 }
-            } else {
+            } catch (e) {
                 rangeData.success = false;
-                rangeData.error = "Cannot find Plotly graph or layout";
+                rangeData.error = e.toString();
             }
-        } catch (e) {
-            rangeData.success = false;
-            rangeData.error = e.toString();
-        }
-        return rangeData;
+            return rangeData;
+        })();
         """
-        
-        # Запускаем JavaScript и передаем результат в обработчик
-        self.browser.page().runJavaScript(script, self.on_range_received)
+
+        # Run JavaScript to get selected range and pass to fast save handler
+        self.browser.page().runJavaScript(script, self.on_fast_save_range_received)
+
+    def _generate_filename(self, is_selected=False):
+        """Generate a descriptive filename that includes all required information"""
+        if self.data is None or self.data.empty:
+            return None
+
+        # Get date range from the data using the timestamp column instead of index
+        start_date = pd.to_datetime(self.data['timestamp'].min()).strftime('%Y%m%d')
+        end_date = pd.to_datetime(self.data['timestamp'].max()).strftime('%Y%m%d')
+
+        # Add current timestamp to show when exported
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        # Generate filename with all required information
+        selection_tag = "selected" if is_selected else "full"
+        filename = f"{self.current_symbol.replace('/', '_')}_{self.timeframe_combo.currentText()}_{start_date}-{end_date}_{selection_tag}_{timestamp}.json"
+
+        return filename
+
+    def on_fast_save_range_received(self, range_data):
+        """Handler for receiving range data for fast save without confirmation"""
+        print("DEBUG: Received range data for fast save:", range_data)
+        if not range_data or not range_data.get('success', False):
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage("Failed to get selected range data")
+            return
+
+        try:
+            # Extract the date range
+            date_range = range_data.get('xRange', [])
+            if not date_range or len(date_range) != 2:
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage("Invalid range data received")
+                return
+
+            # Convert to timestamps
+            start_date = pd.to_datetime(date_range[0])
+            end_date = pd.to_datetime(date_range[1])
+
+            # Filter data to the selected range using timestamp column
+            filtered_df = self.data[(pd.to_datetime(self.data['timestamp']) >= start_date) &
+                                    (pd.to_datetime(self.data['timestamp']) <= end_date)].copy()
+
+            if filtered_df.empty:
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage("No data in selected range")
+                return
+
+            # Create metadata for export
+            metadata = {
+                'symbol': self.current_symbol,
+                'timeframe': self.timeframe_combo.currentText(),
+                'start_date': str(pd.to_datetime(filtered_df['timestamp'].min())),
+                'end_date': str(pd.to_datetime(filtered_df['timestamp'].max())),
+                'rows': len(filtered_df),
+                'exported_at': datetime.now().isoformat()
+            }
+
+            # Convert DataFrame to serializable format - properly handle timestamps
+            filtered_df_copy = filtered_df.copy()
+            for column in filtered_df_copy.select_dtypes(include=['datetime64']).columns:
+                filtered_df_copy[column] = filtered_df_copy[column].astype(str)
+
+            # Now convert to records with timestamps as strings
+            records = filtered_df_copy.replace({pd.NA: None}).to_dict('records')
+
+            # Prepare export data
+            export_data = {
+                'metadata': metadata,
+                'data': records
+            }
+
+            # Set default save location
+            default_dir = os.path.expanduser("~/crypto_data")
+            os.makedirs(default_dir, exist_ok=True)
+
+            # Generate descriptive filename
+            filename = self._generate_filename(is_selected=True)
+            filepath = os.path.join(default_dir, filename)
+
+            print(f"DEBUG: Starting to save data to {filepath}")
+
+            # Save with proper JSON serialization
+            with open(filepath, 'w') as f:
+                json.dump(export_data, f, indent=2)
+
+            print(f"DEBUG: Successfully saved data to {filepath}")
+
+            # Show feedback in status bar
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(f"Data saved to {filepath}")
+
+            # Show toast notification
+            self.show_save_notification(filepath)
+
+            # Send to server if needed
+            self._send_to_server_if_needed(filepath, export_data)
+
+        except Exception as e:
+            print(f"DEBUG: Error in save operation: {str(e)}")
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(f"Error saving data: {str(e)}")
+
+    def show_save_notification(self, filepath):
+        """Shows a notification when data is saved successfully"""
+        print("DEBUG: Showing save notification for", filepath)
+
+        # 1. Send system notification via notify-send (this works well)
+        try:
+            import subprocess
+            subprocess.Popen([
+                'notify-send',
+                'Data Saved',
+                f'File saved to {os.path.basename(filepath)}',
+                '--icon=document-save'
+            ])
+        except Exception as e:
+            print(f"DEBUG: Error sending system notification: {str(e)}")
+
+        # 2. Show status bar message for longer duration
+        if hasattr(self.parent(), "statusBar"):
+            self.parent().statusBar().showMessage(f"Data saved to {filepath}", 5000)  # Show for 5 seconds
+
+
+
+    def _fade_out_notification(self, notification):
+        """Animate notification removal"""
+        if notification in getattr(self, 'active_notifications', []):
+            self.active_notifications.remove(notification)
+
+        # Create fade-out animation
+        anim = QPropertyAnimation(notification, b"geometry")
+        anim.setDuration(300)
+        start_rect = notification.geometry()
+        end_rect = QRect(
+            self.browser.width(),
+            start_rect.y(),
+            start_rect.width(),
+            start_rect.height()
+        )
+        anim.setStartValue(start_rect)
+        anim.setEndValue(end_rect)
+        anim.setEasingCurve(QEasingCurve.InCubic)
+        anim.finished.connect(notification.deleteLater)
+        anim.start()
+    def _close_notification(self):
+        """Safely close the notification"""
+        if hasattr(self, 'save_notification') and self.save_notification:
+            self.save_notification.deleteLater()
+            self.save_notification = None
+    def _send_to_server_if_needed(self, local_filepath, export_data):
+        """Send data to remote server if configured in settings"""
+        try:
+            # Get settings from main window
+            settings_tab = self.parent().settings_tab
+            save_locally = settings_tab.save_locally.isChecked()
+
+            if not save_locally:  # If not save locally only
+                # Get server settings
+                host = settings_tab.host.text()
+                port = settings_tab.port.value()
+                secure = settings_tab.secure.isChecked()
+                protocol = "https" if settings_tab.http_radio.isChecked() and secure else "http"
+                protocol = "tcp" if settings_tab.tcp_radio.isChecked() else protocol
+                api_path = settings_tab.api_path.text()
+
+                # Add to request queue for server upload with visualization in pipe tab
+                task_id = self.request_queue.add_request(
+                    task_type="upload_data",
+                    data=export_data,
+                    endpoint=f"{protocol}://{host}:{port}{api_path}",
+                    callback=self._on_server_upload_complete,
+                    priority=5,  # High priority for uploads
+                    metadata={
+                        "symbol": self.current_symbol,
+                        "timeframe": self.timeframe_combo.currentText(),
+                        "filepath": local_filepath
+                    }
+                )
+
+                if hasattr(self.parent(), "statusBar"):
+                    self.parent().statusBar().showMessage(f"Uploading data to server (Task ID: {task_id})")
+
+        except Exception as e:
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(f"Error preparing server upload: {str(e)}")
+
+    def _on_server_upload_complete(self, result, error=None, metadata=None):
+        """Callback for server upload completion"""
+        if error:
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(f"Error uploading to server: {error}")
+        else:
+            if hasattr(self.parent(), "statusBar"):
+                self.parent().statusBar().showMessage(
+                    f"Successfully uploaded {metadata.get('symbol', 'data')} to server")
 
     def on_range_received(self, range_data):
         """Обработчик получения данных о выбранном диапазоне из JavaScript"""

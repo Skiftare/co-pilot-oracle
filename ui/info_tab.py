@@ -237,10 +237,14 @@ class InfoTab(QWidget):
         # Верхняя панель с контролами - делаем её компактнее
         controls_frame = QFrame()
         controls_frame.setObjectName("controlsFrame")
-        controls_frame.setMaximumHeight(60)  # Ограничиваем высоту панели контролов
+        controls_frame.setMaximumHeight(100)  # Ограничиваем высоту панели контролов
         controls_layout = QHBoxLayout(controls_frame)
-        controls_layout.setContentsMargins(5, 5, 5, 5)  # Уменьшаем отступы
-        controls_layout.setSpacing(5)  # Уменьшаем расстояние между элементами
+        # Исправляем отступы для корректного отображения
+        controls_layout.setContentsMargins(5, 8, 5, 8)  # Было (5, 5, 5, 5)
+        controls_layout.setSpacing(5)  # Уменьшаем расстояние между элемент
+
+
+
 
         # Селектор торговой пары
         pair_layout = QVBoxLayout()
@@ -251,6 +255,7 @@ class InfoTab(QWidget):
         self.pair_selector = PairSelector(self.api_client)
         self.pair_selector.pairSelected.connect(self.on_pair_selected)
         self.pair_selector.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.pair_selector.setMinimumHeight(30)  # Добавляем минимальную высоту
         pair_layout.addWidget(pair_label)
         pair_layout.addWidget(self.pair_selector)
         controls_layout.addLayout(pair_layout, 2)
@@ -265,7 +270,8 @@ class InfoTab(QWidget):
         self.timeframe_combo.addItems(["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"])
         self.timeframe_combo.setCurrentText("1h")
         self.timeframe_combo.setObjectName("styledComboBox")
-        self.timeframe_combo.setMaximumHeight(28)  # Ограничиваем высоту комбобокса
+        self.timeframe_combo.setMinimumHeight(30)  # Вместо MaximumHeight
+
         timeframe_layout.addWidget(timeframe_label)
         timeframe_layout.addWidget(self.timeframe_combo)
         controls_layout.addLayout(timeframe_layout, 1)
@@ -279,7 +285,8 @@ class InfoTab(QWidget):
         self.date_edit = QDateEdit(QDateTime.currentDateTime().addDays(-7).date())
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setObjectName("styledDateEdit")
-        self.date_edit.setMaximumHeight(28)  # Ограничиваем высоту датапикера
+        self.date_edit.setMinimumHeight(30)  # Вместо MaximumHeight
+
         date_layout.addWidget(date_label)
         date_layout.addWidget(self.date_edit)
         controls_layout.addLayout(date_layout, 1)
@@ -294,7 +301,7 @@ class InfoTab(QWidget):
         self.load_btn.setIcon(QIcon("resources/icons/download.png"))
         self.load_btn.setIconSize(QSize(16, 16))  # Уменьшаем размер иконки
         self.load_btn.clicked.connect(self.load_data)
-        self.load_btn.setMaximumHeight(28)  # Ограничиваем высоту кнопки
+        self.load_btn.setMinimumHeight(30)  # Вместо MaximumHeight
         load_layout.addWidget(self.load_btn)
         controls_layout.addLayout(load_layout, 1)
 
@@ -388,7 +395,6 @@ class InfoTab(QWidget):
         self.load_data()
         self.browser.loadFinished.connect(self.on_load_finished)
 
-        # И добавьте метод:
 
 
     def on_load_finished(self, ok):

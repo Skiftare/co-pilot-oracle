@@ -3,8 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QComboBox,
                              QFrame, QToolButton, QSizePolicy, QSplitter,
                              QLineEdit, QCompleter, QAction, QMenu, QApplication,
                              QScrollArea, QMessageBox, QFileDialog)
-from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel, QPropertyAnimation, QRect, QEasingCurve, \
-    QTimer
+from PyQt5.QtCore import Qt, QDateTime, QSize, pyqtSignal, QStringListModel, QPropertyAnimation, QRect, QEasingCurve
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 import plotly.graph_objects as go
@@ -238,10 +237,14 @@ class InfoTab(QWidget):
         # Верхняя панель с контролами - делаем её компактнее
         controls_frame = QFrame()
         controls_frame.setObjectName("controlsFrame")
-        controls_frame.setMaximumHeight(60)  # Ограничиваем высоту панели контролов
+        controls_frame.setMaximumHeight(100)  # Ограничиваем высоту панели контролов
         controls_layout = QHBoxLayout(controls_frame)
-        controls_layout.setContentsMargins(5, 5, 5, 5)  # Уменьшаем отступы
-        controls_layout.setSpacing(5)  # Уменьшаем расстояние между элементами
+        # Исправляем отступы для корректного отображения
+        controls_layout.setContentsMargins(5, 8, 5, 8)  # Было (5, 5, 5, 5)
+        controls_layout.setSpacing(5)  # Уменьшаем расстояние между элемент
+
+
+
 
         # Селектор торговой пары
         pair_layout = QVBoxLayout()
@@ -252,6 +255,7 @@ class InfoTab(QWidget):
         self.pair_selector = PairSelector(self.api_client)
         self.pair_selector.pairSelected.connect(self.on_pair_selected)
         self.pair_selector.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.pair_selector.setMinimumHeight(30)  # Добавляем минимальную высоту
         pair_layout.addWidget(pair_label)
         pair_layout.addWidget(self.pair_selector)
         controls_layout.addLayout(pair_layout, 2)
@@ -266,7 +270,8 @@ class InfoTab(QWidget):
         self.timeframe_combo.addItems(["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"])
         self.timeframe_combo.setCurrentText("1h")
         self.timeframe_combo.setObjectName("styledComboBox")
-        self.timeframe_combo.setMaximumHeight(28)  # Ограничиваем высоту комбобокса
+        self.timeframe_combo.setMinimumHeight(30)  # Вместо MaximumHeight
+
         timeframe_layout.addWidget(timeframe_label)
         timeframe_layout.addWidget(self.timeframe_combo)
         controls_layout.addLayout(timeframe_layout, 1)
@@ -280,7 +285,8 @@ class InfoTab(QWidget):
         self.date_edit = QDateEdit(QDateTime.currentDateTime().addDays(-7).date())
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setObjectName("styledDateEdit")
-        self.date_edit.setMaximumHeight(28)  # Ограничиваем высоту датапикера
+        self.date_edit.setMinimumHeight(30)  # Вместо MaximumHeight
+
         date_layout.addWidget(date_label)
         date_layout.addWidget(self.date_edit)
         controls_layout.addLayout(date_layout, 1)
@@ -295,7 +301,7 @@ class InfoTab(QWidget):
         self.load_btn.setIcon(QIcon("resources/icons/download.png"))
         self.load_btn.setIconSize(QSize(16, 16))  # Уменьшаем размер иконки
         self.load_btn.clicked.connect(self.load_data)
-        self.load_btn.setMaximumHeight(28)  # Ограничиваем высоту кнопки
+        self.load_btn.setMinimumHeight(30)  # Вместо MaximumHeight
         load_layout.addWidget(self.load_btn)
         controls_layout.addLayout(load_layout, 1)
 
@@ -387,6 +393,15 @@ class InfoTab(QWidget):
 
         # Загружаем данные для пары по умолчанию
         self.load_data()
+        self.browser.loadFinished.connect(self.on_load_finished)
+
+
+
+    def on_load_finished(self, ok):
+        if ok:
+            print("График успешно загружен")
+        else:
+            print("Ошибка загрузки графика")
 
     def on_pair_selected(self, symbol):
         """Обработчик выбора торговой пары"""
@@ -591,6 +606,7 @@ class InfoTab(QWidget):
                     'AVAX/USDT', 'MATIC/USDT', 'LTC/USDT']
 
     def update_chart(self, new_data, error=None, append_mode=False, direction=None):
+        print("DEBUG: Обновление графика с новыми данными")
         """
         Обновляет график с новыми данными
         
@@ -1182,49 +1198,40 @@ class InfoTab(QWidget):
         """Shows a notification when data is saved successfully"""
         print("DEBUG: Showing save notification for", filepath)
 
-        # 1. Send system notification via notify-send (this works well)
+        # Используем подходящий метод уведомлений в зависимости от ОС
         try:
-            import subprocess
-            subprocess.Popen([
-                'notify-send',
-                'Data Saved',
-                f'File saved to {os.path.basename(filepath)}',
-                '--icon=document-save'
-            ])
+            import platform
+            if platform.system() == "Windows":
+                # Использование Windows Toast Notifications
+                try:
+                    # Устанавливаем если еще не установлено: pip install win10toast
+                    print("DEBUG: Attempting to use win10toast for Windows notifications")
+                    from plyer import notification
+                    notification.notify(
+                        "Данные сохранены",
+                        f"Файл сохранен: {os.path.basename(filepath)}"
+                    )
+                    print("DEBUG: Successfully sent notification using win10toast")
+                except ImportError:
+                    # Альтернатива для Windows без win10toast
+                    import ctypes
+                    ctypes.windll.user32.MessageBeep(0)
+            else:
+                # Для Linux и других ОС используем notify-send
+                import subprocess
+                subprocess.Popen([
+                    'notify-send',
+                    'Data Saved',
+                    f'File saved to {os.path.basename(filepath)}',
+                    '--icon=document-save'
+                ])
         except Exception as e:
             print(f"DEBUG: Error sending system notification: {str(e)}")
 
-        # 2. Show status bar message for longer duration
+        # Показываем сообщение в статусной строке в любом случае
         if hasattr(self.parent(), "statusBar"):
-            self.parent().statusBar().showMessage(f"Data saved to {filepath}", 5000)  # Show for 5 seconds
+            self.parent().statusBar().showMessage(f"Data saved to {filepath}", 5000)
 
-
-
-    def _fade_out_notification(self, notification):
-        """Animate notification removal"""
-        if notification in getattr(self, 'active_notifications', []):
-            self.active_notifications.remove(notification)
-
-        # Create fade-out animation
-        anim = QPropertyAnimation(notification, b"geometry")
-        anim.setDuration(300)
-        start_rect = notification.geometry()
-        end_rect = QRect(
-            self.browser.width(),
-            start_rect.y(),
-            start_rect.width(),
-            start_rect.height()
-        )
-        anim.setStartValue(start_rect)
-        anim.setEndValue(end_rect)
-        anim.setEasingCurve(QEasingCurve.InCubic)
-        anim.finished.connect(notification.deleteLater)
-        anim.start()
-    def _close_notification(self):
-        """Safely close the notification"""
-        if hasattr(self, 'save_notification') and self.save_notification:
-            self.save_notification.deleteLater()
-            self.save_notification = None
     def _send_to_server_if_needed(self, local_filepath, export_data):
         """Send data to remote server if configured in settings"""
         try:
@@ -1271,76 +1278,3 @@ class InfoTab(QWidget):
             if hasattr(self.parent(), "statusBar"):
                 self.parent().statusBar().showMessage(
                     f"Successfully uploaded {metadata.get('symbol', 'data')} to server")
-
-    def on_range_received(self, range_data):
-        """Обработчик получения данных о выбранном диапазоне из JavaScript"""
-        if not range_data or not range_data.get('success', False):
-            error_msg = range_data.get('error', 'Unknown error') if range_data else 'Failed to get range data'
-            QMessageBox.warning(self, "Selection Error", 
-                              f"Unable to determine selected range: {error_msg}\n"
-                              "Try zooming or selecting an area on the chart first.")
-            return
-            
-        try:
-            # Извлекаем диапазон дат
-            x_range = range_data.get('xRange', [])
-            
-            if not x_range or len(x_range) < 2:
-                QMessageBox.warning(self, "Selection Error", 
-                                   "Invalid date range received from chart.")
-                return
-                
-            # Преобразуем строки дат из plotly в datetime
-            start_date = pd.to_datetime(x_range[0])
-            end_date = pd.to_datetime(x_range[1])
-            
-            # Фильтруем данные по выбранному диапазону
-            selected_data = self.data[(self.data['timestamp'] >= start_date) & 
-                                      (self.data['timestamp'] <= end_date)]
-            
-            if selected_data.empty:
-                QMessageBox.warning(self, "Selection Error", 
-                                   "No data points in the selected range.")
-                return
-                
-            # Получаем путь для сохранения
-            default_dir = os.path.expanduser("~/crypto_data")
-            os.makedirs(default_dir, exist_ok=True)
-            
-            default_filename = f"{self.current_symbol.replace('/', '_')}_{self.timeframe_combo.currentText()}_selection.json"
-            filepath, _ = QFileDialog.getSaveFileName(
-                self, "Save Selected Data as JSON", 
-                os.path.join(default_dir, default_filename),
-                "JSON Files (*.json)"
-            )
-            
-            if filepath:
-                # Преобразуем DataFrame в формат JSON
-                json_data = {
-                    "metadata": {
-                        "symbol": self.current_symbol,
-                        "timeframe": self.timeframe_combo.currentText(),
-                        "selection_start": start_date.strftime('%Y-%m-%d %H:%M:%S'),
-                        "selection_end": end_date.strftime('%Y-%m-%d %H:%M:%S'),
-                        "export_time": pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "export_type": "selected_range",
-                        "points_count": len(selected_data)
-                    },
-                    "data": selected_data.to_dict(orient='records')
-                }
-                
-                # Сохраняем в файл
-                with open(filepath, 'w', encoding='utf-8') as f:
-                    json.dump(json_data, f, ensure_ascii=False, indent=4, default=str)
-                
-                if hasattr(self.parent(), "statusBar"):
-                    self.parent().statusBar().showMessage(f"Selected data ({len(selected_data)} points) saved to {filepath}", 5000)
-                print(f"DEBUG: Выбранные данные ({len(selected_data)} точек) сохранены в {filepath}")
-        except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save selected data: {str(e)}")
-            print(f"DEBUG: Ошибка при сохранении выбранных данных: {e}")
-
-    def export_data(self):
-        """Exports data according to settings from Settings tab"""
-        # This method is now obsolete and replaced by save_data_json and save_selected_data
-        self.save_data_json()

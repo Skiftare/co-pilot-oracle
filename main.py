@@ -1,26 +1,47 @@
 import os
 import sys
+import platform
+
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QDir
+
 from ui.main_window import MainWindow
 
-# Force X11 backend instead of Wayland
-os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+def configure_platform():
+    """Настройка платформы в зависимости от операционной системы"""
+    system = platform.system().lower()
+    print("Определена ОС:", system)
+    # Задаем платформенный плагин в зависимости от ОС
+    if system == "linux":
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+    elif system == "windows":
+        os.environ["QT_QPA_PLATFORM"] = "windows"
+
 
 
 def main():
-    # Create the application
+    # Настройка платформы
+    configure_platform()
+
+    # Создаем приложение
     app = QApplication(sys.argv)
 
-    # Set up stylesheet (with error handling)
+    # Настройка таблицы стилей
     try:
-        style_file = QDir.current().filePath("resources/styles/light_aero_theme.qss")
-        with open(style_file, "r") as f:
-            app.setStyleSheet(f.read())
-    except Exception as e:
-        print(f"Error loading stylesheet: {e}")
+        # Используем os.path для кроссплатформенной работы с путями
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        style_path = os.path.join(base_dir, "resources", "styles", "light_aero_theme.qss")
 
-    # Create and show the main window
+        if os.path.exists(style_path):
+            with open(style_path, "r", encoding="utf-8") as f:
+                app.setStyleSheet(f.read())
+                print("Стиль успешно загружен:", style_path)
+        else:
+            print(f"Файл стилей не найден: {style_path}")
+    except Exception as e:
+        print(f"Ошибка загрузки стилей: {e}")
+
+    # Создаем и показываем основное окно
     window = MainWindow()
     window.show()
 

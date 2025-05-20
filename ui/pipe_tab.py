@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QTableWidgetItem, QHeaderView, QFrame,
                              QGridLayout, QGroupBox, QSizePolicy, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QIcon, QColor, QFont, QPainter, QBrush
+from PyQt5.QtGui import QIcon, QColor
 
 
 class StatusCard(QFrame):
@@ -151,14 +151,6 @@ class PipeTab(QWidget):
         self.pause_btn.clicked.connect(self.toggle_queue)
         self.pause_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         buttons_layout.addWidget(self.pause_btn)
-
-        self.clear_btn = QPushButton("Clear Queue")
-        self.clear_btn.setObjectName("dangerButton")
-        self.clear_btn.setIcon(QIcon("resources/icons/trash.png"))
-        self.clear_btn.setMinimumHeight(30)
-        self.clear_btn.clicked.connect(self.clear_queue)
-        self.clear_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        buttons_layout.addWidget(self.clear_btn)
         
         control_layout.addLayout(buttons_layout)
 

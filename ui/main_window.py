@@ -2,11 +2,10 @@ from PyQt5.QtWidgets import (QMainWindow, QTabWidget, QVBoxLayout, QWidget,
                              QStatusBar, QLabel, QFrame, QHBoxLayout, QSizePolicy,
                              QDesktopWidget, QApplication)
 from PyQt5.QtCore import Qt, QSize, QEvent
-from PyQt5.QtGui import QIcon, QScreen
+from PyQt5.QtGui import QIcon
 
 from ui.info_tab import InfoTab
 from ui.pipe_tab import PipeTab
-from ui.trends_tab import TrendsTab
 from ui.settings_tab import SettingsTab
 from core.api_client import ApiClient
 from core.request_queue import RequestQueue
@@ -78,7 +77,6 @@ class MainWindow(QMainWindow):
 
         # Создаем вкладки
         self.info_tab = InfoTab(self.api_client, self.request_queue)
-        self.trends_tab = TrendsTab(self.api_client, self.request_queue)
         self.pipe_tab = PipeTab(self.request_queue)
         self.settings_tab = SettingsTab(self)
 
@@ -87,7 +85,6 @@ class MainWindow(QMainWindow):
         tabs.setIconSize(QSize(icon_size, icon_size))
         
         tabs.addTab(self.info_tab, QIcon("resources/icons/chart.png"), "Info")
-        tabs.addTab(self.trends_tab, QIcon("resources/icons/trends.png"), "Trends")
         tabs.addTab(self.pipe_tab, QIcon("resources/icons/pipe.png"), "Pipe")
         tabs.addTab(self.settings_tab, QIcon("resources/icons/settings.png"), "Settings")
 
@@ -116,13 +113,10 @@ class MainWindow(QMainWindow):
         self.api_status.style().polish(self.api_status)
 
     def eventFilter(self, obj, event):
-        # Обработка изменения размера окна
         if event.type() == QEvent.Resize and obj is self:
-            # Здесь можно добавить особую логику при ресайзе если нужно
             pass
         return super().eventFilter(obj, event)
 
     def closeEvent(self, event):
-        # Останавливаем все фоновые процессы при закрытии
         self.request_queue.stop()
         event.accept()

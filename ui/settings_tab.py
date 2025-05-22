@@ -24,6 +24,7 @@ class ColorSelector(QFrame):
         # Устанавливаем цвет фона
         self.setStyleSheet(f"background-color: {default_color};")
 
+
         # Разрешаем клик
         self.setMouseTracking(True)
 
@@ -51,14 +52,6 @@ class SettingsTab(QWidget):
         # Создаем вкладки настроек
         tabs = QTabWidget()
         tabs.setObjectName("settingsTabs")
-
-        # Вкладка API настроек
-        api_tab = self.create_api_settings()
-        tabs.addTab(api_tab, QIcon("resources/icons/api_settings.png"), "API Settings")
-
-        # Вкладка настроек внешнего вида
-        display_tab = self.create_display_settings()
-        tabs.addTab(display_tab, QIcon("resources/icons/display_settings.png"), "Display")
 
         # Вкладка настроек экспорта
         export_tab = self.create_export_settings()
@@ -312,12 +305,6 @@ class SettingsTab(QWidget):
         file_layout = QFormLayout(file_group)
         file_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
 
-        # Формат файла по умолчанию
-        file_format = QComboBox()
-        file_format.addItems(["CSV", "JSON", "Excel", "SQLite"])
-        file_format.setObjectName("styledComboBox")
-        file_layout.addRow(QLabel("Default Export Format:"), file_format)
-
         # Путь по умолчанию
         default_path = QLineEdit()
         default_path.setText("~/crypto_data")
@@ -367,7 +354,6 @@ class SettingsTab(QWidget):
         protocol_layout.addWidget(self.tcp_radio)
         protocol_layout.addStretch()
 
-        remote_layout.addRow(QLabel("Transport Protocol:"), protocol_widget)
 
         # Безопасное соединение
         self.secure = QCheckBox("Enable SSL/TLS")

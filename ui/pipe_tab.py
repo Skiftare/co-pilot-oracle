@@ -152,13 +152,7 @@ class PipeTab(QWidget):
         self.pause_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         buttons_layout.addWidget(self.pause_btn)
 
-        self.clear_btn = QPushButton("Clear Queue")
-        self.clear_btn.setObjectName("dangerButton")
-        self.clear_btn.setIcon(QIcon("resources/icons/trash.png"))
-        self.clear_btn.setMinimumHeight(30)
-        self.clear_btn.clicked.connect(self.clear_queue)
-        self.clear_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        buttons_layout.addWidget(self.clear_btn)
+
         
         control_layout.addLayout(buttons_layout)
 
